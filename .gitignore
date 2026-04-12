@@ -205,3 +205,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+# Custom ignore rules can be added below this line
+.DS_Store
+.claude/
+.vscode/
+claude-*.md
+
