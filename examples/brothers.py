@@ -45,6 +45,4 @@ group.rotation = Identity().rotate(30, YAxis)
 for piece in group.pieces:
     print(piece)
 
-# print Piece(Grey, Vector(0, 72, 0), Identity(), "3867")
-
 # Camera should be at 120.0,0.0,-200.0 in LDraw coordinates.

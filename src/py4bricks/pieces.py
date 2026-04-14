@@ -14,14 +14,31 @@ from py4bricks.library import get_dimensions
 
 
 class Piece:
-    """A Piece is a Part with a defined colour, position, and rotation."""
+    """A Piece is a Part with a defined colour, position, and rotation.
+    
+       Attributes:
+            colour: the piece's colour representing an LDraw colour code
+            position: the piece's position in its local (group-relative) frame
+            rotation: the piece's orientation as a 3x3 rotation matrix
+            part: the piece's LDraw part, with an associated variable defined under some e.g. library/parts/doors.py
+            dimensions: the piece's dimensions, same as the part it represents, as a dict with keys "studs_x", "studs_y", "plates_y", "studs_z"
+                studs_x: the piece's width in studs (x direction)
+                studs_y: the piece's height in studs (y direction)
+                plates_y: the piece's height in plates (y direction)
+                studs_z: the piece's depth in studs (z direction)
+            group: the Group this piece belongs to, or None if it is not in a group
+    """
 
     def __init__(self, colour: Colour, position: Vector, rotation: Matrix, part: str, group: Group | None = None):
         self.position = position
         self.colour = colour
         self.rotation = rotation
         self.part = part.lower()
-        self.dimensions = get_dimensions(part)
+        self.dimensions = get_dimensions(self.part)
+        self.studs_x = self.dimensions["studs_x"]
+        self.studs_y = self.dimensions["studs_y"]
+        self.plates_y = self.dimensions["plates_y"]
+        self.studs_z = self.dimensions["studs_z"]
         self.group = group
         if group:
             group.add_piece(self)
@@ -36,7 +53,7 @@ class Piece:
         tup = tuple(reduce(lambda row1, row2: row1 + row2, rotation.rows))
         return (
             ("1 %i " % self.colour.code)
-            + ("%g " * 3) % (position.x, position.y, position.z)
+            + ("%g " * 3) % (position.x, -position.y, position.z)
             + ("%g " * 9) % tup
             + ("%s.dat" % self.part)
         )

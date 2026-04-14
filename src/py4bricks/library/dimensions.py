@@ -13,8 +13,8 @@ from functools import cache
 from attridict import AttriDict
 
 @cache
-def get_dimensions(part: str) -> AttriDict:
-    return AttriDict(PartsDimensions.get(part, {}))
+def get_dimensions(part: str) -> dict:
+    return PartsDimensions.get(part, {})
 
 PartsDimensions = {
     # AcousticGuitar

@@ -207,7 +207,12 @@ def Identity() -> Matrix:  # noqa: N802
 
 
 class Vector:
-    """a Vector in 3D according to LDraw's convention of x, y, z axes, where y is negative vertical."""
+    """a Vector in 3D of x, y, z axes, with y as positive vertical.
+
+    According to LDraw's convention, Y-axis is negative-up, so we revert the sign of Y 
+    in our Vector to make it more intuitive to work with, and then change it back to 
+    negative when producing the LDraw code to be consistent.
+    """
 
     def __init__(self, x: float, y: float, z: float):
         self.x, self.y, self.z = x, y, z

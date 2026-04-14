@@ -14,6 +14,8 @@ uv sync # update dependencies
 
 uv pip install... # install more packages if required
 
+uv pip install -e . # make py4bricks available for importing while also editing
+
 uv build # create dist bundles
 
 uv run py4bricks --update # re-generate py4bricks.library from LDraw's complete.zip

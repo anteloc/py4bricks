@@ -39,17 +39,17 @@ figure = Person(position=Vector(0, 0, -10))
 print(figure.head(colour=Yellow, angle=30))
 print(figure.hat(colour=White, part="193B"))
 print(figure.torso(colour=White, part="973P90"))
-print(figure.backpack(colour=White, displacement=Vector(0, -2, 0)))
+print(figure.backpack(colour=White, displacement=Vector(0, 2, 0)))
 print(figure.hips(colour=White))
 print(figure.left_leg(colour=White, angle=0))
 print(figure.right_leg(colour=White, angle=0))
 print(figure.left_arm(colour=White, angle=-45))
 print(figure.left_hand(colour=White, angle=0))
-print(figure.left_hand_item(colour=Light_Grey, displacement=Vector(0, -11, -12), angle=0, part="3959"))
+print(figure.left_hand_item(colour=Light_Grey, displacement=Vector(0, 11, -12), angle=0, part="3959"))
 print(figure.right_arm(colour=White, angle=0))
 print(figure.right_hand(colour=White, angle=0))
 
-rover = Group(position=Vector(0, 48, 60), rotation=Identity().rotate(-15, YAxis))
+rover = Group(position=Vector(0, -48, 60), rotation=Identity().rotate(-15, YAxis))
 print(
     Piece(
         colour=Light_Grey,
@@ -62,7 +62,7 @@ print(
 print(
     Piece(
         colour=Rubber_Black,
-        position=Vector(30, 6, 0),
+        position=Vector(30, -6, 0),
         rotation=Identity().rotate(90, YAxis),
         part=Tyre6_50X8OffsetTread,
         group=rover,
@@ -71,7 +71,7 @@ print(
 print(
     Piece(
         colour=Rubber_Black,
-        position=Vector(-30, 6, 0),
+        position=Vector(-30, -6, 0),
         rotation=Identity().rotate(90, YAxis),
         part=Tyre6_50X8OffsetTread,
         group=rover,
@@ -89,7 +89,7 @@ print(
 print(
     Piece(
         colour=Rubber_Black,
-        position=Vector(30, 6, -80),
+        position=Vector(30, -6, -80),
         rotation=Identity().rotate(90, YAxis),
         part=Tyre6_50X8OffsetTread,
         group=rover,
@@ -98,7 +98,7 @@ print(
 print(
     Piece(
         colour=Rubber_Black,
-        position=Vector(-30, 6, -80),
+        position=Vector(-30, -6, -80),
         rotation=Identity().rotate(90, YAxis),
         part=Tyre6_50X8OffsetTread,
         group=rover,
@@ -110,7 +110,7 @@ print(Piece(colour=Light_Grey, position=Vector(0, 0, -40), rotation=Identity(), 
 print(
     Piece(
         colour=Chrome_Silver,
-        position=Vector(0, -24, -10),
+        position=Vector(0, 24, -10),
         rotation=Identity().rotate(180, YAxis),
         part=SlopeBrick452X2,
         group=rover,
@@ -119,7 +119,7 @@ print(
 print(
     Piece(
         colour=Chrome_Silver,
-        position=Vector(0, -32, -10),
+        position=Vector(0, 32, -10),
         rotation=Identity().rotate(180, YAxis),
         part=CarSteeringStandAndWheel_Complete_,
         group=rover,
@@ -128,18 +128,18 @@ print(
 print(
     Piece(
         colour=Chrome_Gold,
-        position=Vector(0, -24, -60),
+        position=Vector(0, 24, -60),
         rotation=Identity().rotate(180, YAxis),
         part=Seat2X2,
         group=rover,
     ),
 )
-print(Piece(colour=Chrome_Gold, position=Vector(0, -8, -60), rotation=Identity(), part=Plate2X2, group=rover))
-print(Piece(colour=Chrome_Gold, position=Vector(0, -16, -60), rotation=Identity(), part=Plate2X2, group=rover))
+print(Piece(colour=Chrome_Gold, position=Vector(0, 8, -60), rotation=Identity(), part=Plate2X2, group=rover))
+print(Piece(colour=Chrome_Gold, position=Vector(0, 16, -60), rotation=Identity(), part=Plate2X2, group=rover))
 print(
     Piece(
         colour=Chrome_Gold,
-        position=Vector(0, -24, -90),
+        position=Vector(0, 24, -90),
         rotation=Identity(),
         part=Brick1X2WithClassicSpaceLogoPattern,
         group=rover,
@@ -148,16 +148,16 @@ print(
 print(
     Piece(
         colour=Chrome_Silver,
-        position=Vector(-10, -32, -90),
+        position=Vector(-10, 32, -90),
         rotation=Identity(),
         part=Antenna4HWithRoundedTop,
         group=rover,
     ),
 )
 
-print(Piece(colour=Yellow, position=Vector(0, 72, 0), rotation=Identity(), part=Baseplate16X16))
-print(Piece(colour=Yellow, position=Vector(0, 72, -320), rotation=Identity(), part=Baseplate16X16))
-print(Piece(colour=Blue, position=Vector(320, 72, 0), rotation=Identity(), part=Baseplate16X16))
-print(Piece(colour=Blue, position=Vector(320, 72, -320), rotation=Identity(), part=Baseplate16X16))
-print(Piece(colour=White, position=Vector(-90, -150, 90), rotation=Identity(), part="LIGHT"))
-print(Piece(colour=White, position=Vector(90, -150, 90), rotation=Identity(), part="LIGHT"))
+print(Piece(colour=Yellow, position=Vector(0, -72, 0), rotation=Identity(), part=Baseplate16X16))
+print(Piece(colour=Yellow, position=Vector(0, -72, -320), rotation=Identity(), part=Baseplate16X16))
+print(Piece(colour=Blue, position=Vector(320, -72, 0), rotation=Identity(), part=Baseplate16X16))
+print(Piece(colour=Blue, position=Vector(320, -72, -320), rotation=Identity(), part=Baseplate16X16))
+print(Piece(colour=White, position=Vector(-90, 150, 90), rotation=Identity(), part="LIGHT"))
+print(Piece(colour=White, position=Vector(90, 150, 90), rotation=Identity(), part="LIGHT"))

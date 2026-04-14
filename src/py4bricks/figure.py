@@ -24,6 +24,24 @@ from py4bricks.geometry import Identity, Matrix, Vector, XAxis, YAxis, ZAxis
 from py4bricks.pieces import Group, Piece
 
 
+def _flip_y(v: Vector) -> Vector:
+    """Flip the Y component of a vector.
+
+    Body part offsets are defined in LDraw's Y-down convention (inherited from the
+    original parts data), but Piece stores positions in Y-up convention, negating Y
+    in __repr__ when writing LDraw output.
+
+    After rotating a Y-down local offset to world space, call this to convert the
+    resulting world-space displacement to Y-up stored convention:
+        displacement_yup = _flip_y(rotation * ldraw_offset)
+
+    For user-provided Y-up displacements (e.g. backpack, hand items), round-trip
+    through Y-down so the rotation is applied in the correct convention:
+        displacement_yup = _flip_y(rotation * _flip_y(user_displacement_yup))
+    """
+    return Vector(v.x, -v.y, v.z)
+
+
 def dependent_piece(dep):
     """Mark a piece method as dependent on another piece existing."""
 
@@ -69,7 +87,7 @@ class Person:
 
     def head(self, colour: Colour, angle: int=0, part: str=Head):
         """Displacement from torso."""
-        displacement: Vector = self.rotation * Vector(0, -24, 0)
+        displacement: Vector = _flip_y(self.rotation * Vector(0, -24, 0))
         piece = Piece(
             colour=colour,
             position=self.position + displacement,
@@ -93,10 +111,9 @@ class Person:
         return Piece(colour=colour, position=self.position, rotation=self.rotation, part=part, group=self.group)
 
     def backpack(self, colour: Colour, displacement: Vector | None = None, part: str=Airtanks):
-        """Displacement from torso."""
-        _displacement: Vector = self.rotation * (
-            displacement if displacement is not None else Vector(0, 0, 0)
-        )
+        """Displacement from torso (displacement is in Y-up stored convention)."""
+        _offset: Vector = displacement if displacement is not None else Vector(0, 0, 0)
+        _displacement: Vector = _flip_y(self.rotation * _flip_y(_offset))
         return Piece(
             colour=colour,
             position=self.position + _displacement,
@@ -107,7 +124,7 @@ class Person:
 
     def hips_and_legs(self, colour: Colour, part: str=HipsAndLegs):
         """Displacement from torso."""
-        displacement: Vector = self.rotation * Vector(0, 32, 0)
+        displacement: Vector = _flip_y(self.rotation * Vector(0, 32, 0))
         return Piece(
             colour=colour,
             position=self.position + displacement,
@@ -118,7 +135,7 @@ class Person:
 
     def hips(self, colour: Colour, part: str=Hips):
         """Displacement from torso."""
-        displacement: Vector = self.rotation * Vector(0, 32, 0)
+        displacement: Vector = _flip_y(self.rotation * Vector(0, 32, 0))
         return Piece(
             colour=colour,
             position=self.position + displacement,
@@ -129,7 +146,7 @@ class Person:
 
     def left_arm(self, colour: Colour, angle: int=0, part: str=ArmLeft):
         """Displacement from torso."""
-        displacement: Vector = self.rotation * Vector(15, 8, 0)
+        displacement: Vector = _flip_y(self.rotation * Vector(15, 8, 0))
         piece = Piece(
             colour=colour,
             position=self.position + displacement,
@@ -146,8 +163,7 @@ class Person:
     def left_hand(self, colour: Colour, left_arm: Piece = None,  # type: ignore[assignment]
                   angle: int=0, part: str=Hand):
         """Add a left hand piece to the figure's left arm."""
-        # Displacement from left hand
-        displacement: Vector = left_arm.position + left_arm.rotation * Vector(4, 17, -9)
+        displacement: Vector = left_arm.position + _flip_y(left_arm.rotation * Vector(4, 17, -9))
         rotation: Matrix = (
             left_arm.rotation
             * Identity().rotate(40, XAxis)
@@ -162,11 +178,11 @@ class Person:
         self, colour: Colour, left_hand: Piece = None,  # type: ignore[assignment]
         displacement: Vector | None=None, angle: int=0, part: str | None=None,
     ):
-        """Displacement from left hand."""
+        """Displacement from left hand (displacement is in Y-up stored convention)."""
         if not part:
             return None
         _offset: Vector = displacement if displacement is not None else Vector(0, 0, 0)
-        _displacement: Vector = left_hand.position + left_hand.rotation * _offset
+        _displacement: Vector = left_hand.position + _flip_y(left_hand.rotation * _flip_y(_offset))
         rotation: Matrix = (
             left_hand.rotation
             * Identity().rotate(10, XAxis)
@@ -179,7 +195,7 @@ class Person:
 
     def right_arm(self, colour: Colour, angle: int=0, part: str=ArmRight):
         """Displacement from torso."""
-        displacement: Vector = self.rotation * Vector(-15, 8, 0)
+        displacement: Vector = _flip_y(self.rotation * Vector(-15, 8, 0))
         piece = Piece(
             colour=colour,
             position=self.position + displacement,
@@ -196,7 +212,7 @@ class Person:
     def right_hand(self, colour: Colour, right_arm: Piece = None,  # type: ignore[assignment]
                    angle: int=0, part: str=Hand):
         """Add a right hand piece to the figure's right arm."""
-        displacement: Vector = right_arm.position + right_arm.rotation * Vector(-4, 17, -9)
+        displacement: Vector = right_arm.position + _flip_y(right_arm.rotation * Vector(-4, 17, -9))
         rotation: Matrix = (
             right_arm.rotation
             * Identity().rotate(40, XAxis)
@@ -211,11 +227,11 @@ class Person:
         self, colour: Colour, right_hand: Piece = None,  # type: ignore[assignment]
         displacement: Vector | None=None, angle: int=0, part: str | None=None,
     ):
-        """Add a right hand item."""
+        """Add a right hand item (displacement is in Y-up stored convention)."""
         if not part:
             return None
         _offset: Vector = displacement if displacement is not None else Vector(0, 0, 0)
-        _displacement: Vector = right_hand.position + right_hand.rotation * _offset
+        _displacement: Vector = right_hand.position + _flip_y(right_hand.rotation * _flip_y(_offset))
         rotation: Matrix = (
             right_hand.rotation
             * Identity().rotate(10, XAxis)
@@ -228,7 +244,7 @@ class Person:
 
     def left_leg(self, colour: Colour, angle: int=0, part: str=LegLeft):
         """Add a left leg."""
-        displacement: Vector = self.rotation * Vector(0, 44, 0)
+        displacement: Vector = _flip_y(self.rotation * Vector(0, 44, 0))
         piece = Piece(
             colour=colour,
             position=self.position + displacement,
@@ -245,14 +261,13 @@ class Person:
         """Add a shoe on the left."""
         if not part:
             return None
-        # Displacement from left leg
-        displacement: Vector = left_leg.position + left_leg.rotation * Vector(10, 28, 0)
+        displacement: Vector = left_leg.position + _flip_y(left_leg.rotation * Vector(10, 28, 0))
         rotation: Matrix = left_leg.rotation * Identity().rotate(angle, YAxis)
         return Piece(colour=colour, position=displacement, rotation=rotation, part=part, group=self.group)
 
     def right_leg(self, colour: Colour, angle: int=0, part: str=LegRight):
         """Add a right leg."""
-        displacement: Vector = self.rotation * Vector(0, 44, 0)
+        displacement: Vector = _flip_y(self.rotation * Vector(0, 44, 0))
         piece = Piece(
             colour=colour,
             position=self.position + displacement,
@@ -269,7 +284,6 @@ class Person:
         """Add a shoe on the right."""
         if not part:
             return None
-        # Displacement from right leg
-        displacement: Vector = right_leg.position + right_leg.rotation * Vector(-10, 28, 0)
+        displacement: Vector = right_leg.position + _flip_y(right_leg.rotation * Vector(-10, 28, 0))
         rotation: Matrix = right_leg.rotation * Identity().rotate(angle, YAxis)
         return Piece(colour=colour, position=displacement, rotation=rotation, part=part, group=self.group)

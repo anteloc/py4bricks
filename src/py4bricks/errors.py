@@ -68,3 +68,7 @@ class InvalidConfigFileError(AssertionError):
 
     def __init__(self, config_file: str):
         super().__init__(f"The config file {config_file} is invalid.")
+
+
+class BuilderError(ValueError):
+    """A piece cannot be placed at the requested position in the wall."""
