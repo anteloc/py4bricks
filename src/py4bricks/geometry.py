@@ -22,8 +22,47 @@ from functools import reduce
 from numbers import Number
 from typing import overload
 
+
 LDU_PER_STUD = 20     # 1 stud = 20 LDU horizontally
 LDU_PER_PLATE = 8     # 1 plate = 8 LDU vertically
+LDU_PER_BRICK_HEIGHT = 24 # 1 brick row = 3 plates = 24 LDU
+PLATES_PER_BRICK_HEIGHT = 3  # used to convert brick rows ↔ plates
+
+def studs_to_ldu(studs: int) -> float:
+    """Convert studs to LDU."""
+    return studs * LDU_PER_STUD
+
+def plates_to_ldu(plates: int) -> float:
+    """Convert plates to LDU."""
+    return plates * LDU_PER_PLATE
+
+def ldu_to_studs(ldu: float) -> int:
+    """Convert LDU to studs."""
+    return math.ceil(ldu / LDU_PER_STUD)
+
+def ldu_to_plates(ldu: float) -> int:
+    """Convert LDU to plates."""
+    return math.ceil(ldu / LDU_PER_PLATE)
+
+def studs_to_plates(studs: int) -> int:
+    """Convert studs to plates."""
+    return math.ceil(studs * LDU_PER_STUD / LDU_PER_PLATE)
+
+def plates_to_studs(plates: int) -> int:
+    """Convert plates to studs."""
+    return math.ceil(plates * LDU_PER_PLATE / LDU_PER_STUD)
+
+def plates_to_brick_height(plates: int) -> int:
+    """Convert plates to brick rows."""
+    return math.ceil(plates / PLATES_PER_BRICK_HEIGHT)
+
+def brick_height_to_plates(brick_height: int) -> int:
+    """Convert brick rows to plates."""
+    return math.ceil(brick_height * PLATES_PER_BRICK_HEIGHT)
+
+def brick_height_to_ldu(brick_height: int) -> float:
+    """Convert brick rows to LDU."""
+    return brick_height * LDU_PER_BRICK_HEIGHT
 
 class MatrixError(Exception):
     """Exception raised for matrix operation errors."""

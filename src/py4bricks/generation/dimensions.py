@@ -15,6 +15,7 @@ from py4bricks.resources import _get_resource_content
 from py4bricks.utils import camel, class_name, clean
 
 import sqlite3
+from math import ceil
 
 TMP_TABLE_SQL = """CREATE TEMP TABLE ALIASES_FROM_CODES (
     alias VARCHAR PRIMARY KEY
@@ -101,10 +102,10 @@ def get_d_dict(code: str, part_desc: str, part_dims: dict[str, float]) -> dict:
     # Round to the highest integer: studs and plates are always whole numbers,
     # if a part is 1.4 studs long, it should be considered 2 studs long
     # for collision purposes
-    studs_x = round(ldu_x / LDU_PER_STUD)
-    studs_y = round(ldu_y / LDU_PER_STUD)
-    plates_y = round(ldu_y / LDU_PER_PLATE)
-    studs_z = round(ldu_z / LDU_PER_STUD)
+    studs_x = ceil(ldu_x / LDU_PER_STUD)
+    studs_y = ceil(ldu_y / LDU_PER_STUD)
+    plates_y = ceil(ldu_y / LDU_PER_PLATE)
+    studs_z = ceil(ldu_z / LDU_PER_STUD)
 
     return {
         "code": code,
