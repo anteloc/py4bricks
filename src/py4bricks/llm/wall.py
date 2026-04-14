@@ -100,6 +100,7 @@ class Wall(Group):
         colour: Colour = White,
         facing: Literal["north", "south", "east", "west"] = "north",
         position: Vector | None = None,
+        parallel_to: tuple["Wall", int] | None = None,
     ):
         """Create a wall.
 
@@ -109,12 +110,33 @@ class Wall(Group):
             plates_height: Wall height in plates. Mutually exclusive with bricks_height and same_height_as.
             same_width_as: Copy width (studs_x) from this Piece or Group. Mutually exclusive with studs_width.
             same_height_as: Copy height (plates_y) from this Piece or Group. Mutually exclusive with bricks_height and plates_height.
-            facing: "north", "south", "east", or "west".
+            facing: "north", "south", "east", or "west". Ignored when parallel_to is given (facing is inherited).
             colour: LDraw colour code for the wall bricks.
             name: Unique identifier for this wall/Group.
-            position: World-space position of the wall's origin. Defaults to (0, 0, 0).
+            position: World-space position of the wall's origin. Mutually exclusive with parallel_to.
+            parallel_to: (ref_wall, distance_studs) — place this wall parallel to ref_wall, offset
+                         by distance_studs along the wall face (+right, -left when viewed from outside).
         """
-        super().__init__(position=position, rotation=FACING_ROTATIONS[facing])
+        # --- resolve facing and position ---
+        position_sources = (position is not None, parallel_to is not None)
+        match position_sources:
+            case (False, False):
+                resolved_position = None  # Group defaults to (0, 0, 0)
+            case (True, False):
+                resolved_position = position
+            case (False, True):
+                ref_wall, distance = parallel_to
+                facing = ref_wall.facing
+                # Offset along ref_wall's face normal (local +Z), not the running direction (local X).
+                # This places the new wall alongside ref_wall rather than extending it.
+                # Positive distance → into the building; negative → away from the face.
+                normal_ldu = studs_to_ldu(distance)
+                resolved_position = ref_wall.position + ref_wall.rotation * Vector(0, 0, normal_ldu)
+            case (True, True):
+                raise BuilderError("Specify position or parallel_to, not both.")
+
+        self.facing = facing
+        super().__init__(position=resolved_position, rotation=FACING_ROTATIONS[facing])
         self.name   = name
         self.colour = colour
 

@@ -6,6 +6,7 @@ from py4bricks.geometry import Identity, Vector
 from py4bricks.library.colours import (
     Dark_Blue,
     Sand_Green,
+    Rose_Pink,
     Red,
     White,
     Neon_Yellow,
@@ -26,6 +27,8 @@ north_wall = Wall(studs_width=15, bricks_height=10, facing="north", colour=Red, 
 west_wall = Wall(same_height_as=north_wall, same_width_as=north_wall, facing="west", colour=Dark_Blue, name="west_wall")
 south_wall = Wall(same_height_as=north_wall, same_width_as=north_wall, facing="south", colour=Sand_Green, name="south_wall")
 east_wall = Wall(same_height_as=north_wall, same_width_as=north_wall, facing="east", colour=Neon_Yellow, name="east_wall")
+
+parallel_east = Wall(same_height_as=east_wall, same_width_as=east_wall, parallel_to=(east_wall, -10), colour=Rose_Pink, name="parallel_east_wall")
 
 window = Piece(
     colour=White,
@@ -48,4 +51,4 @@ north_wall.insert(door, studs_x=6, bricks_y=0)
 
 
 
-Path(Path(__file__).parent / "wall_example.mpd").write_text(repr(north_wall) + "\n" + repr(west_wall) + "\n" + repr(south_wall) + "\n" + repr(east_wall))
+Path(Path(__file__).parent / "wall_example.mpd").write_text(repr(north_wall) + "\n" + repr(west_wall) + "\n" + repr(south_wall) + "\n" + repr(east_wall) + "\n" + repr(parallel_east))
