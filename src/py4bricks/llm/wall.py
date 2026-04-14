@@ -1,34 +1,65 @@
 """
 Wall: rectangular brick wall
+
+A Wall is a rectangular surface of bricks, defined by:
+  - length (studs along its face)
+  - height (brick rows)
+  - facing (north/south/east/west)
+  - It lives in its own local coordinate space:
+    - X axis: along the wall face, 0 = left end, length = right end (studs)
+    - Y axis: up from the wall base, 0 = bottom (plates or bricks)
+    - Z axis: wall thickness, depending on the bricks used (LDU)
+
+Methods:
+  - insert(piece, studs_x, plates_y/bricks_y) -> insert a piece (eg. window, door...) into the wall.
+  - opening(studs_x, studs_width, plates_y/bricks_y, plates_height/bricks_height) -> create an opening in the wall.
+
 """
 
 from __future__ import annotations
+
+import sys
 from typing import Literal
 
 from py4bricks.colour import Colour
 from py4bricks.errors import BuilderError
-from py4bricks.geometry import Identity, Vector, LDU_PER_STUD, LDU_PER_PLATE, YAxis
-from py4bricks.library import get_dimensions
-from py4bricks.pieces import Group, Piece
-
-from py4bricks.library.parts.bricks import Brick1X1
+from py4bricks.geometry import (
+    LDU_PER_BRICK_HEIGHT,
+    LDU_PER_PLATE,
+    LDU_PER_STUD,
+    PLATES_PER_BRICK_HEIGHT,
+    Identity,
+    Vector,
+    YAxis,
+    brick_height_to_ldu,
+    brick_height_to_plates,
+    ldu_to_plates,
+    ldu_to_studs,
+    plates_to_brick_height,
+    plates_to_ldu,
+    plates_to_studs,
+    studs_to_ldu,
+    studs_to_plates,
+)
 from py4bricks.library.colours import White
-
+from py4bricks.library.parts.bricks import Brick1X1
+from py4bricks.pieces import Group, Piece
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
 BRICK_HEIGHT_LDU    = 3 * LDU_PER_PLATE  # 1 brick row = 3 plates = 24 LDU
+PLATE_HEIGHT_LDU    = LDU_PER_PLATE
 PLATES_PER_BRICK_ROW = 3                  # used to convert brick rows ↔ plates
 
 # Rotation of the wall group for each cardinal facing direction (around Y axis).
 # "north" is the default orientation: wall face looks toward -Z in LDraw space.
 FACING_ROTATIONS = {
     "north": Identity(),
-    "south": Identity().rotate(180, YAxis),
-    "east":  Identity().rotate(90,  YAxis),
-    "west":  Identity().rotate(-90, YAxis),
+    "south": Identity().rotate(-180, YAxis),
+    "east":  Identity().rotate(-90,  YAxis),
+    "west":  Identity().rotate(90, YAxis),
 }
 
 
@@ -45,8 +76,8 @@ class Wall(Group):
 
     The wall lives in its own local coordinate space:
       - X axis: along the wall face, 0 = left end, length = right end (studs)
-      - Y axis: up from the wall base, 0 = bottom (plates)
-      - Z axis: into the wall, 0 to depth_studs (derived from fill_part).
+      - Y axis: up from the wall base, 0 = bottom (plates or bricks)
+      - Z axis: wall thickness, depending on the bricks used (LDU)
 
     Global positioning (where the wall sits in the scene) is handled by
     its parent Box or Group, not by the wall itself.
@@ -55,39 +86,55 @@ class Wall(Group):
 
     def __init__(
         self,
-        length: int,
-        height: int,
-        facing: Literal["north", "south", "east", "west"],
-        colour: Colour = White,
+        studs_width: int,
+        bricks_height: int = 0,
+        plates_height: int = 0,
         name: str = "",
+        colour: Colour = White,
+        facing: Literal["north", "south", "east", "west"] = "north",
     ):
         """Create a wall.
 
         Args:
-            length: Wall length in studs (along the face).
-            height: Wall height in brick rows (1 row = 3 plates = 24 LDU).
+            studs_length: Wall length in studs (along the face).
+            bricks_height: Wall height in bricks (1 brick row = 3 plates = 24 LDU).
+            plates_height: Wall height in plates (1 brick row = 3 plates = 24 LDU).
             facing: "north", "south", "east", or "west".
             colour: LDraw colour code for the wall bricks.
             name: Unique identifier for this wall/Group.
         """
         super().__init__(rotation=FACING_ROTATIONS[facing])
         self.name   = name
-        self.length = length
-        self.height = height
+        self.studs_length = studs_width
         self.colour = colour
+
+        if bricks_height > 0 and plates_height > 0:
+            raise BuilderError("Cannot specify both bricks_height and plates_height.")
+
+        if bricks_height > 0:
+            self.bricks_height = bricks_height
+            self.plates_height = brick_height_to_plates(bricks_height)
+        elif plates_height > 0:
+            self.plates_height = plates_height
+            self.bricks_height = plates_to_brick_height(plates_height)
+        else:
+            raise BuilderError("Must specify either bricks_height or plates_height.")
+
 
         # Fill the wall; track each fill brick by (col, row) for selective removal.
         self._fill: dict[tuple[int, int], Piece] = {}
         # Track inserted pieces as (x, y_brickrows, studs_x, plates_y) for overlap detection.
         self._insertions: list[tuple[int, int, int, int]] = []
 
-        for row in range(height):
-            for col in range(length):
+        # Use bricks height for rows because a wall is made of bricks: 
+        # there will be as much rows as height in bricks
+        for row in range(self.bricks_height):
+            for col in range(self.studs_length):
                 p = Piece(
                     colour=colour,
                     position=Vector(
-                        x=col * LDU_PER_STUD,
-                        y=-row * BRICK_HEIGHT_LDU,  # LDraw Y is negative-up
+                        x=studs_to_ldu(col),
+                        y=brick_height_to_ldu(row),
                         z=0,
                     ),
                     rotation=Identity(),
@@ -96,71 +143,99 @@ class Wall(Group):
                 )
                 self._fill[(col, row)] = p
 
-    def insert(self, piece: Piece, x: int, y: int,
+    def insert(self, piece: Piece, studs_x: int, plates_y: int = -1, bricks_y: int = -1,
                colour: Colour | None = None) -> None:
-        """Place a piece (e.g. window, door...) into an existing opening.
+        """Place a piece (e.g. window, door...) and remove bricks to make room for it.
 
         Removes any fill bricks covered by the inserted piece's footprint, then
         places the piece at the given position.
 
         Args:
             piece: The Piece object to insert.
-            x: Left edge in studs from the wall's left end.
-            y: Bottom edge in brick rows from the wall base.
+            studs_x: Insert position x in studs from the wall's left end.
+            plates_y: Insert position y in plates from the wall base.
+            bricks_y: Insert position y in brick rows from the wall base (alternative to plates_y).
             colour: Brick colour. Defaults to the wall's own colour.
 
         Raises:
             BuilderError: If the piece overflows the wall bounds or overlaps
                           an already-inserted piece.
         """
-        studs_x: int = piece.studs_x
-        plates_y: int = piece.plates_y
+        if plates_y >= 0 and bricks_y >= 0:
+            raise BuilderError("Cannot specify both plates_y and bricks_y.")
 
-        y_plates    = y * PLATES_PER_BRICK_ROW
-        wall_plates = self.height * PLATES_PER_BRICK_ROW
+        if bricks_y >= 0:
+            plates_y = brick_height_to_plates(bricks_y)
+        elif plates_y >= 0:
+            bricks_y = plates_to_brick_height(plates_y)
+        else:
+            raise BuilderError("Must specify either plates_y or bricks_y.")
 
-        # --- bounds check ---
-        if x < 0 or x + studs_x > self.length:
-            msg = (
-                f"{piece.part!r} overflows wall length "
-                f"(x={x}, width={studs_x} studs, wall={self.length} studs)"
-            )
-            raise BuilderError(msg)
-        if y < 0 or y_plates + plates_y > wall_plates:
-            msg = (
-                f"{piece.part!r} overflows wall height "
-                f"(y={y}, height={plates_y} plates, wall={wall_plates} plates)"
-            )
-            raise BuilderError(msg)
+        p_bricks_y: int = plates_to_brick_height(piece.plates_y)
+        # avoid removing the upper row due to studs from the piece taking space upwards
+        opening_bricks_height = p_bricks_y - 1
 
-        # --- overlap check against already-inserted pieces ---
-        for (ix, iy, isx, ipy) in self._insertions:
-            iy_plates = iy * PLATES_PER_BRICK_ROW
-            x_overlap = x < ix + isx and x + studs_x > ix
-            y_overlap = y_plates < iy_plates + ipy and y_plates + plates_y > iy_plates
-            if x_overlap and y_overlap:
-                msg = (
-                    f"{piece.part!r} at (x={x}, y={y}) overlaps an existing insertion."
-                )
-                raise BuilderError(msg)
+        self.opening(studs_x=studs_x, studs_width=piece.studs_x, 
+                     bricks_y=bricks_y, bricks_height=opening_bricks_height)
 
-        # --- clear fill bricks covered by this piece ---
-        # A fill brick at row r (3 plates tall) is covered if its range intersects
-        # [y_plates, y_plates + plates_y).
-        rows_covered = (plates_y + PLATES_PER_BRICK_ROW - 1) // PLATES_PER_BRICK_ROW
-        for row in range(y, y + rows_covered):
-            for col in range(x, x + studs_x):
-                if fill_piece := self._fill.pop((col, row), None):
-                    self.remove_piece(fill_piece)
+        p_x = studs_to_ldu(studs_x)
+        p_y = plates_to_ldu(plates_y)
 
-        # --- place the piece in wall-local LDraw coordinates ---
+        # --- place the piece in wall-local coordinates ---
         piece.position = Vector(
-            x=x * LDU_PER_STUD,
-            y=-y * BRICK_HEIGHT_LDU,  # LDraw Y is negative-up
+            x=p_x,  # center the piece on the studs_x position
+            y=p_y,  # center the piece on the plates_y position
             z=0,
         )
+
         if colour is not None:
             piece.colour = colour
         self.add_piece(piece)
 
-        self._insertions.append((x, y, studs_x, plates_y))
+        self._insertions.append((studs_x, plates_y, piece.studs_x, piece.plates_y))
+
+    def opening(self, studs_x: int, studs_width: int, 
+                plates_y: int = -1, plates_height: int = 0, 
+                bricks_y: int = -1, bricks_height: int = 0) -> None:
+        """Create an opening with the given width and height by removing bricks starting at (studs_x, plates_y/bricks_y).
+
+        Args:
+            studs_x: Opening start position x in studs from the wall's left end.
+            studs_width: Opening width in studs.
+            plates_y: Opening start position y in plates from the wall base.
+            plates_height: Opening height in plates from the wall base.
+            bricks_y: Opening start position y in brick rows from the wall base (alternative to plates_y).
+            bricks_height: Opening height in brick rows from the wall base (alternative to plates_height).
+
+        Raises:
+            BuilderError: If the piece overflows the wall bounds or overlaps
+                          an already-inserted piece.
+        """
+        if plates_y >= 0 and bricks_y >= 0:
+            raise BuilderError("Cannot specify both plates_y and bricks_y.")
+
+        if plates_height > 0 and bricks_height > 0:
+            raise BuilderError("Cannot specify both plates_height and bricks_height.")
+
+        if bricks_y >= 0:
+            plates_y = brick_height_to_plates(bricks_y)
+        elif plates_y >= 0:
+            bricks_y = plates_to_brick_height(plates_y)
+        else:
+            raise BuilderError("Must specify either plates_y or bricks_y.")
+
+        if bricks_height > 0:
+            plates_height = brick_height_to_plates(bricks_height)
+        elif plates_height > 0:
+            bricks_height = plates_to_brick_height(plates_height)
+        else:
+            raise BuilderError("Must specify either plates_height or bricks_height.")
+        
+        # Use bricks height for rows because a wall is made of bricks: 
+        # there will be as much rows as height in bricks
+        for row in range(bricks_y, bricks_y + bricks_height):
+            for col in range(studs_x, studs_x + studs_width):
+                p = self._fill.pop((col, row), None)
+                if p is not None:
+                    self.remove_piece(p)
+

@@ -22,10 +22,20 @@ class Piece:
         self.rotation = rotation
         self.part = part.lower()
         self.dimensions = get_dimensions(part)
+        self.ldu_x = self.dimensions.get("ldu_x", 0)
+        self.ldu_y = self.dimensions.get("ldu_y", 0)
+        self.ldu_z = self.dimensions.get("ldu_z", 0)
         self.studs_x = self.dimensions.get("studs_x", 0)
         self.studs_y = self.dimensions.get("studs_y", 0)
         self.plates_y = self.dimensions.get("plates_y", 0)
         self.studs_z = self.dimensions.get("studs_z", 0)
+
+        self.offset = Vector(
+            x=self.ldu_x / 2,
+            y=self.ldu_y,
+            z=self.ldu_z / 2,
+        )
+
         self.group = group
         if group:
             group.add_piece(self)
@@ -38,9 +48,15 @@ class Piece:
             position = self.position
             rotation = self.rotation
         tup = tuple(reduce(lambda row1, row2: row1 + row2, rotation.rows))
+
+        # In LDraw, pieces have their origin at the center of the top face, 
+        # but we are working with the piece's origin at the left-front-bottom-corner, 
+        # so we need to apply an offset to get the correct position in LDraw coordinates.
+        origin = position + self.offset
+
         return (
             ("1 %i " % self.colour.code)
-            + ("%g " * 3) % (position.x, -position.y, position.z)
+            + ("%g " * 3) % (origin.x, -origin.y, origin.z)
             + ("%g " * 9) % tup
             + ("%s.dat" % self.part)
         )
