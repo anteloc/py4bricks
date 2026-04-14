@@ -74,21 +74,28 @@ FACING_ROTATIONS = {
 class Wall(Group):
     """A rectangular brick wall made of Brick1x1 pieces.
 
+    A Wall is a Group, and as such can be conceived as:
+
+        "A group of bricks and pieces that form a wall"
+
     The wall lives in its own local coordinate space:
       - X axis: along the wall face, 0 = left end, length = right end (studs)
       - Y axis: up from the wall base, 0 = bottom (plates or bricks)
       - Z axis: wall thickness, depending on the bricks used (LDU)
 
     Global positioning (where the wall sits in the scene) is handled by
-    its parent Box or Group, not by the wall itself.
+    its Group superclass, while the Wall class focuses on managing the wall's 
+    internal structure and the insertion of pieces (windows, doors...) into it.
 
     """
 
     def __init__(
         self,
-        studs_width: int,
+        studs_width: int = 0,
         bricks_height: int = 0,
         plates_height: int = 0,
+        same_width_as: Group | Piece | None = None,
+        same_height_as: Group | Piece | None = None,
         name: str = "",
         colour: Colour = White,
         facing: Literal["north", "south", "east", "west"] = "north",
@@ -96,29 +103,49 @@ class Wall(Group):
         """Create a wall.
 
         Args:
-            studs_length: Wall length in studs (along the face).
-            bricks_height: Wall height in bricks (1 brick row = 3 plates = 24 LDU).
-            plates_height: Wall height in plates (1 brick row = 3 plates = 24 LDU).
+            studs_width: Wall width in studs (along the face). Mutually exclusive with same_width_as.
+            bricks_height: Wall height in bricks (1 brick = 3 plates). Mutually exclusive with plates_height and same_height_as.
+            plates_height: Wall height in plates. Mutually exclusive with bricks_height and same_height_as.
+            same_width_as: Copy width (studs_x) from this Piece or Group. Mutually exclusive with studs_width.
+            same_height_as: Copy height (plates_y) from this Piece or Group. Mutually exclusive with bricks_height and plates_height.
             facing: "north", "south", "east", or "west".
             colour: LDraw colour code for the wall bricks.
             name: Unique identifier for this wall/Group.
         """
         super().__init__(rotation=FACING_ROTATIONS[facing])
         self.name   = name
-        self.studs_length = studs_width
         self.colour = colour
 
-        if bricks_height > 0 and plates_height > 0:
-            raise BuilderError("Cannot specify both bricks_height and plates_height.")
+        # --- resolve width ---
+        width_sources = (studs_width > 0, same_width_as is not None)
+        match width_sources:
+            case (True, False):
+                resolved_studs_width = studs_width
+            case (False, True):
+                resolved_studs_width = same_width_as.studs_x
+            case (True, True):
+                raise BuilderError("Specify studs_width or same_width_as, not both.")
+            case _:
+                raise BuilderError("Must specify either studs_width or same_width_as.")
 
-        if bricks_height > 0:
-            self.bricks_height = bricks_height
-            self.plates_height = brick_height_to_plates(bricks_height)
-        elif plates_height > 0:
-            self.plates_height = plates_height
-            self.bricks_height = plates_to_brick_height(plates_height)
-        else:
-            raise BuilderError("Must specify either bricks_height or plates_height.")
+        self.studs_length = resolved_studs_width
+
+        # --- resolve height ---
+        height_sources = (bricks_height > 0, plates_height > 0, same_height_as is not None)
+        match height_sources:
+            case (True, False, False):
+                self.bricks_height = bricks_height
+                self.plates_height = brick_height_to_plates(bricks_height)
+            case (False, True, False):
+                self.plates_height = plates_height
+                self.bricks_height = plates_to_brick_height(plates_height)
+            case (False, False, True):
+                self.plates_height = same_height_as.plates_y
+                self.bricks_height = plates_to_brick_height(self.plates_height)
+            case (False, False, False):
+                raise BuilderError("Must specify one of: bricks_height, plates_height, or same_height_as.")
+            case _:
+                raise BuilderError("Specify exactly one of: bricks_height, plates_height, or same_height_as.")
 
 
         # Fill the wall; track each fill brick by (col, row) for selective removal.

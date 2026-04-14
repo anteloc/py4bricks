@@ -5,8 +5,10 @@ from pathlib import Path
 from py4bricks.geometry import Identity, Vector
 from py4bricks.library.colours import (
     Dark_Blue,
+    Sand_Green,
     Red,
     White,
+    Neon_Yellow,
 )
 from py4bricks.library.parts.doors import (
     Door1X4X6Frame,
@@ -19,7 +21,11 @@ from py4bricks.pieces import Piece
 
 # 15 studs wide, 10 brick rows tall — room for a 4-stud window (plates_y=15)
 # and a 4-stud door
-wall = Wall(studs_width=15, bricks_height=10, facing="north", colour=Red, name="front_wall")
+north_wall = Wall(studs_width=15, bricks_height=10, facing="north", colour=Red, name="north_wall")
+# the other cardinal directions will have the same dimensions as the north wall, but different colours
+west_wall = Wall(same_height_as=north_wall, same_width_as=north_wall, facing="west", colour=Dark_Blue, name="west_wall")
+south_wall = Wall(same_height_as=north_wall, same_width_as=north_wall, facing="south", colour=Sand_Green, name="south_wall")
+east_wall = Wall(same_height_as=north_wall, same_width_as=north_wall, facing="east", colour=Neon_Yellow, name="east_wall")
 
 window = Piece(
     colour=White,
@@ -35,9 +41,11 @@ door = Piece(
 )
 
 # Window: 4 studs wide, 10 plates tall — placed 1 stud from left, 3 rows up.
-wall.insert(window, studs_x=1, plates_y=15)
+north_wall.insert(window, studs_x=1, plates_y=15)
 
 # Door: 1 stud wide, 16 plates tall — placed at the base, 6 studs from left.
-wall.insert(door, studs_x=6, bricks_y=0)
+north_wall.insert(door, studs_x=6, bricks_y=0)
 
-Path(Path(__file__).parent / "wall_example.mpd").write_text(repr(wall))
+
+
+Path(Path(__file__).parent / "wall_example.mpd").write_text(repr(north_wall) + "\n" + repr(west_wall) + "\n" + repr(south_wall) + "\n" + repr(east_wall))

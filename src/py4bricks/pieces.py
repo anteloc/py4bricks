@@ -12,6 +12,24 @@ from py4bricks.colour import Colour
 from py4bricks.geometry import Identity, Matrix, Vector
 from py4bricks.library import get_dimensions
 
+from py4bricks.geometry import (
+    LDU_PER_BRICK_HEIGHT,
+    LDU_PER_PLATE,
+    LDU_PER_STUD,
+    PLATES_PER_BRICK_HEIGHT,
+    Identity,
+    Vector,
+    YAxis,
+    brick_height_to_ldu,
+    brick_height_to_plates,
+    ldu_to_studs,
+    plates_to_brick_height,
+    plates_to_ldu,
+    plates_to_studs,
+    studs_to_ldu,
+    studs_to_plates,
+)
+
 
 class Piece:
     """A Piece is a Part with a defined colour, position, and rotation."""
@@ -81,9 +99,43 @@ class Group:
         self.position = position if position is not None else Vector(0, 0, 0)
         self.rotation = rotation if rotation is not None else Identity()
         self.pieces: list[Piece] = []
+        # Bounding box in group-local space, same attribute shape as Piece
+        self.ldu_x: float = 0
+        self.ldu_y: float = 0
+        self.ldu_z: float = 0
+        self.studs_x: int = 0
+        self.plates_y: int = 0
+        self.studs_z: int = 0
 
     def __repr__(self) -> str:
         return "\n".join([repr(piece) for piece in self.pieces])
+
+    def _recalculate_dimensions(self) -> None:
+        """Recompute the bounding box of all pieces in group-local space.
+
+        Dimensions are expressed relative to the group origin, mirroring the
+        attribute shape of Piece so callers can treat Group and Piece uniformly.
+        """
+        if not self.pieces:
+            self.ldu_x = self.ldu_y = self.ldu_z = 0
+            self.studs_x = self.plates_y = self.studs_z = 0
+            return
+
+        min_x = min(p.position.x for p in self.pieces)
+        max_x = max(p.position.x + p.ldu_x for p in self.pieces)
+        min_y = min(p.position.y for p in self.pieces)
+        max_y = max(p.position.y + p.ldu_y for p in self.pieces)
+        min_z = min(p.position.z for p in self.pieces)
+        max_z = max(p.position.z + p.ldu_z for p in self.pieces)
+
+        self.ldu_x = max_x - min_x
+        self.ldu_y = max_y - min_y
+        self.ldu_z = max_z - min_z
+        self.studs_x = ldu_to_studs(self.ldu_x)
+        # Floor division snaps to the plate grid, ignoring sub-plate stud protrusions
+        # (e.g. Brick1X1 ldu_y=28 = 24 LDU body + 4 LDU stud; structural height is 24).
+        self.plates_y = int(self.ldu_y // LDU_PER_PLATE)
+        self.studs_z = ldu_to_studs(self.ldu_z)
 
     def add_piece(self, piece: Piece) -> None:
         """Add a piece to the group."""
@@ -91,11 +143,15 @@ class Group:
         if piece.group and piece.group != self:
             piece.group.remove_piece(piece)
         piece.group = self
+        self._recalculate_dimensions()
 
     def remove_piece(self, piece: Piece) -> None:
         """Remove a piece from the group."""
+        if piece is None:
+            return
         self.pieces.remove(piece)
         piece.group = None
+        self._recalculate_dimensions()
 
     def displace_by(self, displacement: Vector) -> None:
         """Translate this group in world space, moving all contained pieces with it."""
