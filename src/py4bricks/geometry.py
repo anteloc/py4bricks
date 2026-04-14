@@ -150,7 +150,7 @@ class Matrix:
         if axis == XAxis:
             rotation = Matrix([[1, 0, 0], [0, c, -s], [0, s, c]])
         elif axis == YAxis:
-            rotation = Matrix([[c, 0, -s], [0, 1, 0], [s, 0, c]])
+            rotation = Matrix([[c, 0, s], [0, 1, 0], [-s, 0, c]])
         elif axis == ZAxis:
             rotation = Matrix([[c, -s, 0], [s, c, 0], [0, 0, 1]])
         else:

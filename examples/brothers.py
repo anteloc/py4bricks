@@ -41,7 +41,7 @@ print(figure.left_leg(colour=Blue))
 print(figure.right_leg(colour=Blue, angle=-30))
 
 group.position = Vector(60, 0, 0)
-group.rotation = Identity().rotate(30, YAxis)
+group.rotation = Identity().rotate(-30, YAxis)
 for piece in group.pieces:
     print(piece)
 

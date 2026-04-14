@@ -32,20 +32,20 @@ from py4bricks.library.parts.minifig.torsos import Torso
 from py4bricks.pieces import Piece
 
 figure = Person(position=Vector(0, 0, -10), rotation=Identity().rotate(-15, ZAxis).rotate(20, XAxis))
-print(figure.head(Yellow, -15))
+print(figure.head(Yellow, 15))
 print(figure.hat(colour=Black, part=HelmetVisorDiverMask))
 print(figure.hat(colour=Black, part=HairMale))
 print(figure.torso(colour=Yellow, part=Torso))
 print(figure.backpack(colour=Black, displacement=Vector(0, 2, 0), part=Airtanks))
 print(figure.hips(colour=Green))
 print(figure.left_leg(colour=Yellow, angle=30))
-print(figure.left_shoe(colour=Black, angle=10, part=FlipperThin))
+print(figure.left_shoe(colour=Black, angle=-10, part=FlipperThin))
 print(figure.right_leg(colour=Yellow, angle=-10))
-print(figure.right_shoe(colour=Black, angle=-10, part=FlipperThin))
+print(figure.right_shoe(colour=Black, angle=10, part=FlipperThin))
 print(figure.left_arm(colour=Yellow, angle=-45))
 print(figure.left_hand(colour=Yellow, angle=10))
 print(
-    figure.left_hand_item(colour=Light_Grey, displacement=Vector(0, 0, -12), angle=-15, part=CameraMovie),
+    figure.left_hand_item(colour=Light_Grey, displacement=Vector(0, 0, -12), angle=15, part=CameraMovie),
 )  # Camera Movie
 print(figure.right_arm(colour=Yellow, angle=60))
 print(figure.right_hand(colour=Yellow, angle=0))
