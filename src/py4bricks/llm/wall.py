@@ -99,6 +99,7 @@ class Wall(Group):
         name: str = "",
         colour: Colour = White,
         facing: Literal["north", "south", "east", "west"] = "north",
+        position: Vector | None = None,
     ):
         """Create a wall.
 
@@ -111,8 +112,9 @@ class Wall(Group):
             facing: "north", "south", "east", or "west".
             colour: LDraw colour code for the wall bricks.
             name: Unique identifier for this wall/Group.
+            position: World-space position of the wall's origin. Defaults to (0, 0, 0).
         """
-        super().__init__(rotation=FACING_ROTATIONS[facing])
+        super().__init__(position=position, rotation=FACING_ROTATIONS[facing])
         self.name   = name
         self.colour = colour
 
