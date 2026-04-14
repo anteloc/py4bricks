@@ -47,15 +47,15 @@ figure.hips(colour=Black)
 figure.left_leg(colour=Black, angle=50)
 figure.right_leg(colour=Black, angle=-40)
 
-group.position = Vector(-100, 40, -120)
-group.rotation = Identity().rotate(-30, ZAxis).rotate(90, YAxis)
+group.position = Vector(-100, -40, -120)
+group.rotation = Identity().rotate(-30, ZAxis).rotate(-90, YAxis)
 for piece in group.pieces:
     print(piece)
 
 stairs = Group()
 
 x = -120
-y = 144
+y = -144
 z = -160
 steps = 5
 Piece(colour=Dark_Blue, position=Vector(x, y, z + 40), rotation=Identity(), part=Plate6X6, group=stairs)
@@ -63,7 +63,7 @@ for i in range(steps):
     for pz in range(z, z + 120, 40):
         Piece(
             colour=Dark_Blue,
-            position=Vector(x + 50 + (i * 40), y - 24 - (i * 24), pz),
+            position=Vector(x + 50 + (i * 40), y + 24 + (i * 24), pz),
             rotation=Identity(),
             part=Brick2X3,
             group=stairs,
@@ -74,21 +74,21 @@ for piece in stairs.pieces:
 
 staircases = 7
 for i in range(1, staircases + 1):
-    stairs.position = Vector(0, i * (8 + steps * 24), 0)
-    stairs.rotation = Identity().rotate(-90 * i, YAxis)
+    stairs.position = Vector(0, -i * (8 + steps * 24), 0)
+    stairs.rotation = Identity().rotate(90 * i, YAxis)
     for piece in stairs.pieces:
         print(piece)
 
-top_y = y - (steps * 24) - 8
+top_y = y + (steps * 24) + 8
 print(Piece(colour=Dark_Blue, position=Vector(120, top_y, -120), rotation=Identity(), part=Plate6X6))
 
 for i in range(1, 5):
-    print(Piece(colour=Dark_Red, position=Vector(170, top_y - (i * 24), -170), rotation=Identity(), part=Brick1X1))
-    print(Piece(colour=Dark_Red, position=Vector(70, top_y - (i * 24), -170), rotation=Identity(), part=Brick1X1))
+    print(Piece(colour=Dark_Red, position=Vector(170, top_y + (i * 24), -170), rotation=Identity(), part=Brick1X1))
+    print(Piece(colour=Dark_Red, position=Vector(70, top_y + (i * 24), -170), rotation=Identity(), part=Brick1X1))
 
-print(Piece(colour=Dark_Red, position=Vector(120, top_y - (5 * 24), -170), rotation=Identity(), part=Arch1X6))
+print(Piece(colour=Dark_Red, position=Vector(120, top_y + (5 * 24), -170), rotation=Identity(), part=Arch1X6))
 
-print(Piece(colour=White, position=Vector(200, -200, 200), rotation=Identity(), part="LIGHT"))
-print(Piece(colour=White, position=Vector(200, -200, -200), rotation=Identity(), part="LIGHT"))
-print(Piece(colour=White, position=Vector(-200, -200, 200), rotation=Identity(), part="LIGHT"))
-print(Piece(colour=White, position=Vector(-200, -200, -200), rotation=Identity(), part="LIGHT"))
+print(Piece(colour=White, position=Vector(200, 200, 200), rotation=Identity(), part="LIGHT"))
+print(Piece(colour=White, position=Vector(200, 200, -200), rotation=Identity(), part="LIGHT"))
+print(Piece(colour=White, position=Vector(-200, 200, 200), rotation=Identity(), part="LIGHT"))
+print(Piece(colour=White, position=Vector(-200, 200, -200), rotation=Identity(), part="LIGHT"))

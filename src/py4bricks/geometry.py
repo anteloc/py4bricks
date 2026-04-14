@@ -1,9 +1,9 @@
-"""geometry.py - Geometry classes for LDraw.
+"""geometry.py - Geometry classes.
 
 - Matrix: 3x3 rotation matrix for piece orientation.
-- Vector: 3D vector for piece position and displacement according to LDraw's conventions
-    * X-axis is horizontal
-    * Y-axis is vertical (negative is up),
+- Vector: 3D vector for piece position and displacement.
+    * X-axis is horizontal,
+    * Y-axis is vertical (positive is up),
     * Z-axis is depth.
 - Vector2D: 2D vector for planar positions.
 - Axis: XAxis, YAxis, ZAxis for specifying rotation axes.
@@ -150,7 +150,7 @@ class Matrix:
         if axis == XAxis:
             rotation = Matrix([[1, 0, 0], [0, c, -s], [0, s, c]])
         elif axis == YAxis:
-            rotation = Matrix([[c, 0, -s], [0, 1, 0], [s, 0, c]])
+            rotation = Matrix([[c, 0, s], [0, 1, 0], [-s, 0, c]])
         elif axis == ZAxis:
             rotation = Matrix([[c, -s, 0], [s, c, 0], [0, 0, 1]])
         else:
@@ -207,7 +207,7 @@ def Identity() -> Matrix:  # noqa: N802
 
 
 class Vector:
-    """a Vector in 3D according to LDraw's convention of x, y, z axes, where y is negative vertical."""
+    """a Vector in 3D where x is horizontal, y is positive-up vertical, and z is depth."""
 
     def __init__(self, x: float, y: float, z: float):
         self.x, self.y, self.z = x, y, z

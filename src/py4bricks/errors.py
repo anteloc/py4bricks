@@ -68,3 +68,10 @@ class InvalidConfigFileError(AssertionError):
 
     def __init__(self, config_file: str):
         super().__init__(f"The config file {config_file} is invalid.")
+
+class BuilderError(Exception):
+    """Could not build the structure."""
+
+    def __init__(self, msg: str):
+        super().__init__(f"Could not build the structure: {msg}")
+

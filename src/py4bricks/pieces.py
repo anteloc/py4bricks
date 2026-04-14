@@ -22,6 +22,10 @@ class Piece:
         self.rotation = rotation
         self.part = part.lower()
         self.dimensions = get_dimensions(part)
+        self.studs_x = self.dimensions.get("studs_x", 0)
+        self.studs_y = self.dimensions.get("studs_y", 0)
+        self.plates_y = self.dimensions.get("plates_y", 0)
+        self.studs_z = self.dimensions.get("studs_z", 0)
         self.group = group
         if group:
             group.add_piece(self)
@@ -36,7 +40,7 @@ class Piece:
         tup = tuple(reduce(lambda row1, row2: row1 + row2, rotation.rows))
         return (
             ("1 %i " % self.colour.code)
-            + ("%g " * 3) % (position.x, position.y, position.z)
+            + ("%g " * 3) % (position.x, -position.y, position.z)
             + ("%g " * 9) % tup
             + ("%s.dat" % self.part)
         )

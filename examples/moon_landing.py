@@ -65,7 +65,7 @@ print(figure.left_hand_item(colour=Light_Grey, displacement=Vector(0, -11, -12),
 print(figure.right_arm(colour=White, angle=0))
 print(figure.right_hand(colour=White, angle=0))
 print()
-rover = Group(position=Vector(80, 48, 20), rotation=Identity())
+rover = Group(position=Vector(80, -48, 20), rotation=Identity())
 
 print(
     Piece(
@@ -79,8 +79,8 @@ print(
 print(
     Piece(
         colour=Black,
-        position=Vector(30, 6, 0),
-        rotation=Identity().rotate(90, YAxis),
+        position=Vector(30, -6, 0),
+        rotation=Identity().rotate(-90, YAxis),
         part=Tyre6_50X8OffsetTread,
         group=rover,
     ),
@@ -88,8 +88,8 @@ print(
 print(
     Piece(
         colour=Black,
-        position=Vector(-30, 6, 0),
-        rotation=Identity().rotate(90, YAxis),
+        position=Vector(-30, -6, 0),
+        rotation=Identity().rotate(-90, YAxis),
         part=Tyre6_50X8OffsetTread,
         group=rover,
     ),
@@ -106,8 +106,8 @@ print(
 print(
     Piece(
         colour=Black,
-        position=Vector(30, 6, -80),
-        rotation=Identity().rotate(90, YAxis),
+        position=Vector(30, -6, -80),
+        rotation=Identity().rotate(-90, YAxis),
         part=Tyre6_50X8OffsetTread,
         group=rover,
     ),
@@ -115,8 +115,8 @@ print(
 print(
     Piece(
         colour=Black,
-        position=Vector(-30, 6, -80),
-        rotation=Identity().rotate(90, YAxis),
+        position=Vector(-30, -6, -80),
+        rotation=Identity().rotate(-90, YAxis),
         part=Tyre6_50X8OffsetTread,
         group=rover,
     ),
@@ -127,8 +127,8 @@ print(Piece(colour=Light_Grey, position=Vector(0, 0, -40), rotation=Identity(), 
 print(
     Piece(
         colour=Light_Grey,
-        position=Vector(0, -24, -10),
-        rotation=Identity().rotate(180, YAxis),
+        position=Vector(0, 24, -10),
+        rotation=Identity().rotate(-180, YAxis),
         part=SlopeBrick452X2,
         group=rover,
     ),
@@ -136,8 +136,8 @@ print(
 print(
     Piece(
         colour=Light_Grey,
-        position=Vector(0, -32, -10),
-        rotation=Identity().rotate(180, YAxis),
+        position=Vector(0, 32, -10),
+        rotation=Identity().rotate(-180, YAxis),
         part=CarSteeringStandAndWheel_Complete_,
         group=rover,
     ),
@@ -145,18 +145,18 @@ print(
 print(
     Piece(
         colour=Light_Grey,
-        position=Vector(0, -24, -60),
-        rotation=Identity().rotate(180, YAxis),
+        position=Vector(0, 24, -60),
+        rotation=Identity().rotate(-180, YAxis),
         part=Seat2X2,
         group=rover,
     ),
 )
-print(Piece(colour=Light_Grey, position=Vector(0, -8, -60), rotation=Identity(), part=Plate2X2, group=rover))
-print(Piece(colour=Light_Grey, position=Vector(0, -16, -60), rotation=Identity(), part=Plate2X2, group=rover))
+print(Piece(colour=Light_Grey, position=Vector(0, 8, -60), rotation=Identity(), part=Plate2X2, group=rover))
+print(Piece(colour=Light_Grey, position=Vector(0, 16, -60), rotation=Identity(), part=Plate2X2, group=rover))
 print(
     Piece(
         colour=Light_Grey,
-        position=Vector(0, -24, -90),
+        position=Vector(0, 24, -90),
         rotation=Identity(),
         part=Brick1X2WithClassicSpaceLogoPattern,
         group=rover,
@@ -165,7 +165,7 @@ print(
 print(
     Piece(
         colour=Light_Grey,
-        position=Vector(-10, -32, -90),
+        position=Vector(-10, 32, -90),
         rotation=Identity(),
         part=Antenna4HWithRoundedTop,
         group=rover,
@@ -174,23 +174,23 @@ print(
 print(
     Piece(
         colour=Trans_Green,
-        position=Vector(10, -48, -90),
+        position=Vector(10, 48, -90),
         rotation=Identity(),
         part=Brick1X1RoundWithSolidStud,
         group=rover,
     ),
 )
-print(Piece(colour=Green, position=Vector(10, -52, -90), rotation=Identity(), part="LIGHT", group=rover))
+print(Piece(colour=Green, position=Vector(10, 52, -90), rotation=Identity(), part="LIGHT", group=rover))
 
 # Duplicate the rover with a different position and orientation.
 
-rover.position = Vector(-85, 45, 115)
-rover.rotation = Identity().rotate(-190, YAxis).rotate(-20, XAxis).rotate(-6, ZAxis)
+rover.position = Vector(-85, -45, 115)
+rover.rotation = Identity().rotate(190, YAxis).rotate(-20, XAxis).rotate(-6, ZAxis)
 print(rover)
 
 # Add a seated figure to the rover.
 
-figure = Person(position=Vector(0, -76, -50), rotation=Identity().rotate(180, YAxis), group=rover)
+figure = Person(position=Vector(0, 76, -50), rotation=Identity().rotate(-180, YAxis), group=rover)
 print(figure.head(colour=Yellow, angle=0))
 print(figure.hat(colour=Red, part=HelmetClassic))
 print(figure.torso(colour=Red, part=TorsoWithClassicSpacePattern))
@@ -203,5 +203,5 @@ print(figure.left_hand(colour=Red, angle=0))
 print(figure.right_arm(colour=Red, angle=-35))
 print(figure.right_hand(colour=Red, angle=0))
 print()
-print(Piece(colour=White, position=Vector(200, -300, -400), rotation=Identity(), part="LIGHT"))
-print(Piece(colour=Light_Grey, position=Vector(0, 72, 0), rotation=Identity(), part=Baseplate32X32WithCraters))
+print(Piece(colour=White, position=Vector(200, 300, -400), rotation=Identity(), part="LIGHT"))
+print(Piece(colour=Light_Grey, position=Vector(0, -72, 0), rotation=Identity(), part=Baseplate32X32WithCraters))

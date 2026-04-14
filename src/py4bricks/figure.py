@@ -69,11 +69,11 @@ class Person:
 
     def head(self, colour: Colour, angle: int=0, part: str=Head):
         """Displacement from torso."""
-        displacement: Vector = self.rotation * Vector(0, -24, 0)
+        displacement: Vector = self.rotation * Vector(0, 24, 0)
         piece = Piece(
             colour=colour,
             position=self.position + displacement,
-            rotation=self.rotation * Identity().rotate(angle, YAxis), # type: ignore
+            rotation=self.rotation * Identity().rotate(-angle, YAxis), # type: ignore
             part=part,
             group=self.group,
         )
@@ -107,7 +107,7 @@ class Person:
 
     def hips_and_legs(self, colour: Colour, part: str=HipsAndLegs):
         """Displacement from torso."""
-        displacement: Vector = self.rotation * Vector(0, 32, 0)
+        displacement: Vector = self.rotation * Vector(0, -32, 0)
         return Piece(
             colour=colour,
             position=self.position + displacement,
@@ -118,7 +118,7 @@ class Person:
 
     def hips(self, colour: Colour, part: str=Hips):
         """Displacement from torso."""
-        displacement: Vector = self.rotation * Vector(0, 32, 0)
+        displacement: Vector = self.rotation * Vector(0, -32, 0)
         return Piece(
             colour=colour,
             position=self.position + displacement,
@@ -129,7 +129,7 @@ class Person:
 
     def left_arm(self, colour: Colour, angle: int=0, part: str=ArmLeft):
         """Displacement from torso."""
-        displacement: Vector = self.rotation * Vector(15, 8, 0)
+        displacement: Vector = self.rotation * Vector(15, -8, 0)
         piece = Piece(
             colour=colour,
             position=self.position + displacement,
@@ -147,7 +147,7 @@ class Person:
                   angle: int=0, part: str=Hand):
         """Add a left hand piece to the figure's left arm."""
         # Displacement from left hand
-        displacement: Vector = left_arm.position + left_arm.rotation * Vector(4, 17, -9)
+        displacement: Vector = left_arm.position + left_arm.rotation * Vector(4, -17, -9)
         rotation: Matrix = (
             left_arm.rotation
             * Identity().rotate(40, XAxis)
@@ -170,7 +170,7 @@ class Person:
         rotation: Matrix = (
             left_hand.rotation
             * Identity().rotate(10, XAxis)
-            * Identity().rotate(angle, YAxis)
+            * Identity().rotate(-angle, YAxis)
         )
         return Piece(
             colour=colour, position=_displacement, rotation=rotation,
@@ -179,7 +179,7 @@ class Person:
 
     def right_arm(self, colour: Colour, angle: int=0, part: str=ArmRight):
         """Displacement from torso."""
-        displacement: Vector = self.rotation * Vector(-15, 8, 0)
+        displacement: Vector = self.rotation * Vector(-15, -8, 0)
         piece = Piece(
             colour=colour,
             position=self.position + displacement,
@@ -196,7 +196,7 @@ class Person:
     def right_hand(self, colour: Colour, right_arm: Piece = None,  # type: ignore[assignment]
                    angle: int=0, part: str=Hand):
         """Add a right hand piece to the figure's right arm."""
-        displacement: Vector = right_arm.position + right_arm.rotation * Vector(-4, 17, -9)
+        displacement: Vector = right_arm.position + right_arm.rotation * Vector(-4, -17, -9)
         rotation: Matrix = (
             right_arm.rotation
             * Identity().rotate(40, XAxis)
@@ -219,7 +219,7 @@ class Person:
         rotation: Matrix = (
             right_hand.rotation
             * Identity().rotate(10, XAxis)
-            * Identity().rotate(angle, YAxis)
+            * Identity().rotate(-angle, YAxis)
         )
         return Piece(
             colour=colour, position=_displacement, rotation=rotation,
@@ -228,7 +228,7 @@ class Person:
 
     def left_leg(self, colour: Colour, angle: int=0, part: str=LegLeft):
         """Add a left leg."""
-        displacement: Vector = self.rotation * Vector(0, 44, 0)
+        displacement: Vector = self.rotation * Vector(0, -44, 0)
         piece = Piece(
             colour=colour,
             position=self.position + displacement,
@@ -246,13 +246,13 @@ class Person:
         if not part:
             return None
         # Displacement from left leg
-        displacement: Vector = left_leg.position + left_leg.rotation * Vector(10, 28, 0)
-        rotation: Matrix = left_leg.rotation * Identity().rotate(angle, YAxis)
+        displacement: Vector = left_leg.position + left_leg.rotation * Vector(10, -28, 0)
+        rotation: Matrix = left_leg.rotation * Identity().rotate(-angle, YAxis)
         return Piece(colour=colour, position=displacement, rotation=rotation, part=part, group=self.group)
 
     def right_leg(self, colour: Colour, angle: int=0, part: str=LegRight):
         """Add a right leg."""
-        displacement: Vector = self.rotation * Vector(0, 44, 0)
+        displacement: Vector = self.rotation * Vector(0, -44, 0)
         piece = Piece(
             colour=colour,
             position=self.position + displacement,
@@ -270,6 +270,6 @@ class Person:
         if not part:
             return None
         # Displacement from right leg
-        displacement: Vector = right_leg.position + right_leg.rotation * Vector(-10, 28, 0)
-        rotation: Matrix = right_leg.rotation * Identity().rotate(angle, YAxis)
+        displacement: Vector = right_leg.position + right_leg.rotation * Vector(-10, -28, 0)
+        rotation: Matrix = right_leg.rotation * Identity().rotate(-angle, YAxis)
         return Piece(colour=colour, position=displacement, rotation=rotation, part=part, group=self.group)
