@@ -18,6 +18,7 @@ from __future__ import (
 
 import copy
 import math
+from fractions import Fraction
 from functools import reduce
 from numbers import Number
 from typing import overload
@@ -62,6 +63,19 @@ def brick_height_to_plates(brick_height: int) -> int:
 def brick_height_to_ldu(brick_height: int) -> float:
     """Convert brick rows to LDU."""
     return brick_height * LDU_PER_BRICK_HEIGHT
+
+def proportional(whole: int, proportion: tuple[int, int]) -> int:
+    """Return the integer number corresponding to a proportion of a whole number.
+    
+    For example, to get a 2/3 proportion of 15 studs, call proportional(15, Fraction(2, 3)), which will return 10 studs.
+    """
+    # Integrity check by creating a Fraction
+    # If this fails, it will raise an error that will give feedback about the invalid values
+    Fraction(proportion[0], proportion[1])
+
+    num, denom = proportion
+    
+    return (whole * num) // denom
 
 class MatrixError(Exception):
     """Exception raised for matrix operation errors."""

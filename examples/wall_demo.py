@@ -2,14 +2,14 @@
 
 from pathlib import Path
 
-from py4bricks.geometry import Identity, Vector
+from py4bricks.geometry import Identity, Vector, proportional
 from py4bricks.library.colours import (
     Dark_Blue,
-    Sand_Green,
-    Rose_Pink,
-    Red,
-    White,
     Neon_Yellow,
+    Red,
+    Rose_Pink,
+    Sand_Green,
+    White,
 )
 from py4bricks.library.parts.doors import (
     Door1X4X6Frame,
@@ -37,11 +37,16 @@ north_wall = Wall(name="north_wall",
                   bricks_height=10, 
                   facing="north", 
                   colour=Red)
-north_wall.insert(window, at_studs_x=1, at_plates_y=15)
-# doors are always at_bricks_y=0, standing on the ground
-north_wall.insert(door, at_studs_x=6, at_bricks_y=0)
-# north_wall.opening(at_studs_x=6, at_bricks_y=0, studs_width=4, bricks_height=6)
 
+
+one_sixth_x = proportional(north_wall.studs_width, (1, 6))
+three_fifths_y = proportional(north_wall.plates_height, (3, 5))
+
+north_wall.insert(window, at_studs_x=one_sixth_x, at_plates_y=three_fifths_y)
+
+# doors are always at_bricks_y=0, standing on the ground
+door_center_x = proportional(north_wall.studs_width, (1, 2)) + proportional(door.studs_x, (1, 2))
+north_wall.insert(door, at_studs_x=door_center_x, at_bricks_y=0)
 
 # Oriented west, same dimensions as north wall, this time we will change the wall's position and rotation
 west_wall = Wall.from_references(name="west_wall", 
@@ -51,26 +56,29 @@ west_wall = Wall.from_references(name="west_wall",
 west_wall.place(at=Vector(-20, 0, 0), facing="west")
 
 # Same dimensions as west_wall, parallel to west wall at a distance of 20 studs in front of west_wall
-parallel_west_right = Wall.from_references(name="parallel_west_right", 
+parallel_west_front = Wall.from_references(name="parallel_west_front", 
                                            same_height_as=west_wall, 
                                            same_width_as=west_wall, 
                                            colour=Rose_Pink)
-parallel_west_right.place_parallel_to(other_wall=west_wall, distance_studs=20)
+parallel_west_front.place_parallel_to(other_wall=west_wall, distance_studs=20)
+
+# Create an opening at ground level, at an arbitrary horizontal position
+parallel_west_front.opening(at_studs_x=2, at_bricks_y=0, studs_width=4, bricks_height=9)
 
 # Half the width of west wall, double the height of north wall, parallel to west wall at a distance of 30 studs behind west wall
-HALF_W_W_WIDTH = west_wall.studs_width // 2
-DBL_N_W_HEIGHT = north_wall.plates_height * 2
-parallel_west_left = Wall.from_dimensions(name="parallel_west_left", 
-                                          studs_width=HALF_W_W_WIDTH, 
-                                          plates_height=DBL_N_W_HEIGHT, 
+half_w_w_width = proportional(west_wall.studs_width, (1, 2))
+dbl_n_w_height = proportional(north_wall.plates_height, (2, 1))
+parallel_west_behind= Wall.from_dimensions(name="parallel_west_behind", 
+                                          studs_width=half_w_w_width, 
+                                          plates_height=dbl_n_w_height, 
                                           colour=Neon_Yellow)
-parallel_west_left.place_parallel_to(other_wall=west_wall, distance_studs=-30)
+parallel_west_behind.place_parallel_to(other_wall=west_wall, distance_studs=-30)
 
 reprs = [
     repr(north_wall), 
     repr(west_wall), 
-    repr(parallel_west_right), 
-    repr(parallel_west_left)
+    repr(parallel_west_front), 
+    repr(parallel_west_behind)
 
 ]
 Path(Path(__file__).parent / "wall_demo.mpd").write_text("\n".join(reprs))
