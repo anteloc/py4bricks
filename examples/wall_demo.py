@@ -1,8 +1,44 @@
-"""wall_demo.py — Generate brick walls at different positions, in different ways."""
+"""wall_demo.py — Generate brick walls at different positions, in different ways.
+
+Wall: rectangular brick wall
+
+A Wall is a rectangular surface of bricks, defined by:
+  - length (studs along its face)
+  - height (brick rows)
+  - facing (north/south/east/west)
+  - It lives in its own local coordinate space:
+    - X axis: along the wall face, 0 = left end, length = right end (studs)
+    - Y axis: up from the wall base, 0 = bottom (plates or bricks)
+    - Z axis: wall thickness, depending on the bricks used (LDU)
+
+Public Methods:
+  ----------
+  __init__(name: str, studs_width: int = 0, bricks_height: int = 0, plates_height: int = 0, position: Vector = Origin(), facing: Literal["north", "south", "east", "west"] = "north", colour: Colour = White) -> Wall
+      Create a new wall. Provide either bricks_height or plates_height for height, but not both.
+
+  from_dimensions(name: str, studs_width: int, bricks_height: int = 0, plates_height: int = 0, colour: Colour = White) -> Wall
+      Create a wall from explicit width and height dimensions.
+
+  from_references(name: str, same_width_as: Group | Piece, same_height_as: Group | Piece, colour: Colour = White) -> Wall
+      Create a wall by copying width and height dimensions from reference objects.
+
+  insert(piece: Piece, at_studs_x: int, at_plates_y: int = -1, at_bricks_y: int = -1) -> None
+      Place a piece (e.g. window, door...) and remove bricks to make room for it. Params plates_y and bricks_y are mutually exclusive.
+
+  opening(at_studs_x: int, studs_width: int, at_plates_y: int = -1, plates_height: int = 0, at_bricks_y: int = -1, bricks_height: int = 0) -> None
+      Create an opening on the wall with the given width and height. On Y coordinates, choose to work either on bricks or plates, but not both.
+
+  place(at: Vector, facing: Literal["north", "south", "east", "west"]) -> None
+      Place the wall at the given world position and facing direction.
+
+  place_parallel_to(other_wall: Wall, distance_studs: int) -> None
+      Place this wall parallel to a reference wall at the given distance (in studs). Positive distance places wall in front; negative places behind. Both walls share the same facing direction.
+"""
+
 
 from pathlib import Path
 
-from py4bricks.geometry import Identity, Vector, proportional
+from py4bricks.geometry import Vector, proportional
 from py4bricks.library.colours import (
     Dark_Blue,
     Neon_Yellow,

@@ -246,11 +246,6 @@ class Wall(Group):
             studs_x: Insert position x in studs from the wall's left end.
             plates_y: Insert position y in plates from the wall base.
             bricks_y: Insert position y in brick rows from the wall base (alternative to plates_y).
-            colour: Brick colour. Defaults to the wall's own colour.
-
-        Raises:
-            BuilderError: If the piece overflows the wall bounds or overlaps
-                          an already-inserted piece.
         """
 
         at_y_values = (
@@ -274,7 +269,6 @@ class Wall(Group):
         self.opening(at_studs_x=at_studs_x, 
                      studs_width=piece.studs_x,
                      at_bricks_y=_at_bricks_y,
-                    #  plates_height=piece.plates_y,
                      bricks_height=opening_bricks_height,
                     )
 
@@ -309,9 +303,6 @@ class Wall(Group):
             at_bricks_y: Alternative to at_plates_y, but in brick units.
             bricks_height: Alternative to plates_height, but in brick units.
 
-        Raises:
-            BuilderError: If the piece overflows the wall bounds or overlaps
-                          an already-inserted piece.
         """
         # Work in plates units for precision
         at_y_values = (
