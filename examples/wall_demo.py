@@ -37,32 +37,34 @@ north_wall = Wall(name="north_wall",
                   bricks_height=10, 
                   facing="north", 
                   colour=Red)
-# north_wall.insert(window, at_studs_x=1, at_plates_y=15)
+north_wall.insert(window, at_studs_x=1, at_plates_y=15)
 # doors are always at_bricks_y=0, standing on the ground
-# north_wall.insert(door, at_studs_x=6, at_bricks_y=0)
+north_wall.insert(door, at_studs_x=6, at_bricks_y=0)
+# north_wall.opening(at_studs_x=6, at_bricks_y=0, studs_width=4, bricks_height=6)
+
 
 # Oriented west, same dimensions as north wall, this time we will change the wall's position and rotation
 west_wall = Wall.from_references(name="west_wall", 
                                  same_height_as=north_wall, 
                                  same_width_as=north_wall, 
                                  colour=Dark_Blue)
-west_wall.place(at=Vector(-200, 0, 0), facing="west")
+west_wall.place(at=Vector(-20, 0, 0), facing="west")
 
-# Same dimensions as west_wall, parallel to west wall at a distance of 20 studs to west_wall's right
+# Same dimensions as west_wall, parallel to west wall at a distance of 20 studs in front of west_wall
 parallel_west_right = Wall.from_references(name="parallel_west_right", 
                                            same_height_as=west_wall, 
                                            same_width_as=west_wall, 
                                            colour=Rose_Pink)
-parallel_west_right.place_parallel_to(ref_wall=west_wall, distance_studs=20)
+parallel_west_right.place_parallel_to(other_wall=west_wall, distance_studs=20)
 
-# Half the width of west wall, double the height of north wall, parallel to west wall at a distance of 30 studs to west wall's left
-HALF_WEST_WALL_WIDTH = west_wall.studs_width // 2
-DOUBLE_NORTH_WALL_HEIGHT = north_wall.plates_height * 2
+# Half the width of west wall, double the height of north wall, parallel to west wall at a distance of 30 studs behind west wall
+HALF_W_W_WIDTH = west_wall.studs_width // 2
+DBL_N_W_HEIGHT = north_wall.plates_height * 2
 parallel_west_left = Wall.from_dimensions(name="parallel_west_left", 
-                                          studs_width=HALF_WEST_WALL_WIDTH, 
-                                          plates_height=DOUBLE_NORTH_WALL_HEIGHT, 
+                                          studs_width=HALF_W_W_WIDTH, 
+                                          plates_height=DBL_N_W_HEIGHT, 
                                           colour=Neon_Yellow)
-parallel_west_left.place_parallel_to(ref_wall=west_wall, distance_studs=-30)
+parallel_west_left.place_parallel_to(other_wall=west_wall, distance_studs=-30)
 
 reprs = [
     repr(north_wall), 

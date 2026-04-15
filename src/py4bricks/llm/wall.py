@@ -147,6 +147,8 @@ class Wall(Group):
             colour: LDraw colour code for the wall bricks.
         """
 
+        # Enable for debugging: visual cues, etc.
+        self.debug = True
 
         self.facing = facing
         super().__init__(position=position, rotation=FACING_ROTATIONS[facing])
@@ -170,7 +172,7 @@ class Wall(Group):
 
         # Fill the wall; track each fill brick by (col, row) for selective removal.
         self._fill: dict[tuple[int, int], Piece] = {}
-        # Track inserted pieces as (x, y_brickrows, studs_x, plates_y) for overlap detection.
+        # TODO Track inserted pieces as (x, y_brickrows, studs_x, plates_y) for overlap detection.
         self._insertions: list[tuple[int, int, int, int]] = []
 
         # Use bricks height for rows because a wall is made of bricks: 
@@ -182,8 +184,7 @@ class Wall(Group):
             bricks_y_end=self.bricks_height,
         )
 
-        debug = True
-        if debug:
+        if self.debug:
             self._debug_hints()
             
     def _debug_hints(self):
@@ -263,18 +264,22 @@ class Wall(Group):
             param_name="at_y (plates or bricks)",
         )
 
-        p_bricks_y: int = plates_to_brick_height(piece.plates_y)
+        _at_plates_y = brick_height_to_plates(_at_bricks_y)
+
+        p_bricks_height: int = plates_to_brick_height(piece.plates_y)
 
         # avoid removing the upper row due to studs from the piece taking space upwards
-        opening_bricks_height = p_bricks_y - 1
+        opening_bricks_height = p_bricks_height - 1
 
         self.opening(at_studs_x=at_studs_x, 
                      studs_width=piece.studs_x,
                      at_bricks_y=_at_bricks_y,
-                     bricks_height=opening_bricks_height)
+                    #  plates_height=piece.plates_y,
+                     bricks_height=opening_bricks_height,
+                    )
 
         p_x = studs_to_ldu(at_studs_x)
-        p_y = plates_to_ldu(at_plates_y)
+        p_y = plates_to_ldu(_at_plates_y)
 
         # --- place the piece in wall-local coordinates ---
         piece.position = Vector(
@@ -285,7 +290,7 @@ class Wall(Group):
 
         self.add_piece(piece)
 
-        self._insertions.append((at_studs_x, at_plates_y, piece.studs_x, piece.plates_y))
+        self._insertions.append((at_studs_x, _at_plates_y, piece.studs_x, piece.plates_y))
 
     def opening(self,
                 at_studs_x: int, 
@@ -308,12 +313,13 @@ class Wall(Group):
             BuilderError: If the piece overflows the wall bounds or overlaps
                           an already-inserted piece.
         """
+        # Work in plates units for precision
         at_y_values = (
             at_plates_y,
             brick_height_to_plates(at_bricks_y) if at_bricks_y >= 0 else -1,
         )
 
-        _at_bricks_y = single_value_or_error(
+        _at_plates_y = single_value_or_error(
             at_y_values,
             non_value=-1,
             param_name="at_y (plates or bricks)",
@@ -324,14 +330,16 @@ class Wall(Group):
             brick_height_to_plates(bricks_height),
         )
 
-        _bricks_height = single_value_or_error(
+        _plates_height = single_value_or_error(
             height_values,
             non_value=0,
             param_name="height (plates or bricks)",
         )
 
-        # Use bricks height for rows because a wall is made of bricks:
-        # there will be as much rows as height in bricks
+        _at_bricks_y = plates_to_brick_height(_at_plates_y)
+        _bricks_height = plates_to_brick_height(_plates_height)
+
+        # Work in bricks units because of the wall structured around bricks rows
         for row in range(_at_bricks_y, _at_bricks_y + _bricks_height):
             for col in range(at_studs_x, at_studs_x + studs_width):
                 p = self._fill.pop((col, row), None)
@@ -343,12 +351,12 @@ class Wall(Group):
         self.rotation = FACING_ROTATIONS[facing]
         self.position = at
 
-    def place_parallel_to(self, ref_wall: Wall, distance_studs: int) -> None:
+    def place_parallel_to(self, other_wall: Wall, distance_studs: int) -> None:
         """Place this wall parallel to a reference wall at the given distance (in studs).
         
-        If distance is positive, this wall will be placed to the right of the reference wall, and viceversa.
+        If distance is positive, this wall will be placed in front of the reference wall, and viceversa.
         Both walls will face the same cardinal direction (north, south, east, or west).
         """
         normal_ldu = studs_to_ldu(distance_studs)
-        self.rotation = ref_wall.rotation
-        self.position = ref_wall.position + ref_wall.rotation * Vector(0, 0, normal_ldu)
+        self.rotation = other_wall.rotation
+        self.position = other_wall.position + other_wall.rotation * Vector(0, 0, normal_ldu)
