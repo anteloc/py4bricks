@@ -195,7 +195,7 @@ class Wall(Group):
         wall_normal = plane_normal / plane_normal.magn()
         facing_arrow = Piece(
             colour=Medium_Azure,
-            position=wall_normal,
+            position=wall_normal + Vector(0, 0, studs_to_ldu(4)),
             rotation=Identity().rotate(-90, XAxis),  # rotate to point along the wall plane instead of upwards
             part=Spike2_4LWith4FinsWithBar0_4L,
             group=self)

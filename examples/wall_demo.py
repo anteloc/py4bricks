@@ -62,6 +62,8 @@ window = Piece(
     part=Window1X4X3WithoutShutterTabs,
 )
 
+window2 = window.copy()
+
 door = Piece(
     colour=Dark_Blue,
     part=Door1X4X6Frame,
@@ -78,6 +80,7 @@ north_wall = Wall(name="north_wall",
 one_sixth_x = proportional(north_wall.studs_width, (1, 6))
 three_fifths_y = proportional(north_wall.plates_height, (3, 5))
 
+# OK: this is perfectly aligned and placed in the wall
 north_wall.insert(window, at_studs_x=one_sixth_x, at_plates_y=three_fifths_y)
 
 # doors are always at_bricks_y=0, standing on the ground
@@ -90,6 +93,11 @@ west_wall = Wall.from_references(name="west_wall",
                                  same_width_as=north_wall, 
                                  colour=Dark_Blue)
 west_wall.place(at=Vector(-20, 0, 0), facing="west")
+
+
+# BUG: this places a window outside the wall plane and displaced relative to the opening it belongs to
+west_wall.insert(window2, at_studs_x=one_sixth_x, at_plates_y=three_fifths_y)
+
 
 # Same dimensions as west_wall, parallel to west wall at a distance of 20 studs in front of west_wall
 parallel_west_front = Wall.from_references(name="parallel_west_front", 

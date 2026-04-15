@@ -76,7 +76,7 @@ class Piece:
         # In LDraw, pieces have their origin at the center of the top face, 
         # but we are working with the piece's origin at the left-front-bottom-corner, 
         # so we need to apply an offset to get the correct position in LDraw coordinates.
-        origin = position + self.offset
+        origin = position + rotation * self.offset
 
         return (
             ("1 %i " % self.colour.code)
@@ -92,6 +92,16 @@ class Piece:
     def rotate_by(self, rotation: Matrix) -> None:
         """Post-multiply this piece's rotation matrix by the given rotation."""
         self.rotation = self.rotation * rotation
+
+    def copy(self) -> Piece:
+        """Create a copy of this piece with the same attributes but no group."""
+        return Piece(
+            colour=self.colour,
+            position=self.position,
+            rotation=self.rotation,
+            part=self.part,
+            group=None,
+        )
 
 
 class Group:
