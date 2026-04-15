@@ -34,7 +34,13 @@ from py4bricks.geometry import (
 class Piece:
     """A Piece is a Part with a defined colour, position, and rotation."""
 
-    def __init__(self, colour: Colour, position: Vector, rotation: Matrix, part: str, group: Group | None = None):
+    def __init__(self, 
+                 colour: Colour, 
+                 position: Vector = Vector(0, 0, 0),
+                 rotation: Matrix = Identity(),
+                 part: str = "",
+                 group: Group | None = None,
+    ) -> None:
         self.position = position
         self.colour = colour
         self.rotation = rotation

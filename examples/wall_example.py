@@ -44,10 +44,10 @@ door = Piece(
 )
 
 # Window: 4 studs wide, 10 plates tall — placed 1 stud from left, 3 rows up.
-north_wall.insert(window, studs_x=1, plates_y=15)
+east_wall.insert(window, at_studs_x=1, at_plates_y=15)
 
 # Door: 1 stud wide, 16 plates tall — placed at the base, 6 studs from left.
-north_wall.insert(door, studs_x=6, bricks_y=0)
+east_wall.insert(door, at_studs_x=6, at_bricks_y=0)
 
 
 

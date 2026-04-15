@@ -65,21 +65,26 @@ uv pip install -e . # make py4bricks available for importing while also editing
    - `py4bricks/library/`: there are huge files here, containing entities representing the massive collection of LDraw parts.
    - **Rule exception**: `py4bricks/library/colours.py` contains colour definitions, this is **allowed** for you to read
 
-## Python Practices
-- Always use or add type hints
-- Prefer @dataclasses where applicable
-- Always use f-string over string formatting or concatentation (except in logging strings)
-- Use async generators and comprehensions when they might provide benefits
-- Use underscores in large numeric literals
-- Use walrus assignment := where applicable
-- Prefer to use named arguments when calling a method with more than one argument
-- Use "list" instead of "List" and "dict" instead of "Dict" and "|" instead of "Union" for types
-- Use "Self" for applicable types
-- Use Structural Pattern Matching (match...case) where applicable
-- Always use pathlib.Path for file operations, never use os.path
-- Define constants with meaningful names, instead of using "just numbers"
-- Create constants for typical operations like e.g. `ROTATE_NORTH: Matrix = ...`
-- Indicated mathematical operations instead of calculations, such as `middle_distance = WALL_LENGTH / 2` instead of `middle_distance = 0.75`
-- Get a piece's dimensions from its properties: piece.studs_x, piece.plates_y, etc.
-- **Do NOT** try to infer a piece's dimensions from the variable for the part that it represents, like e.g. Window1X4X3
-- **Do NOT** try and fix linter errors in the code
+## Python Practices (MANDATORY)
+- **DO's:**
+   - What follows should be tailored for you to help you follow the code and make changes
+   - Add comments and docstrings suitable for RAG for functions, constants, etc.
+   - Prefer @dataclasses where applicable
+   - Always use f-string over string formatting or concatentation (except in logging strings)
+   - Use async generators and comprehensions when they might provide benefits
+   - Use underscores in large numeric literals
+   - Use walrus assignment := where applicable
+   - Prefer to use named arguments when calling a method with more than one argument
+   - Use "list" vs "List", "dict" vs of "Dict" and "|" vs of "Union" for types
+   - Use "Self" for applicable types
+   - Use Structural Pattern Matching (match...case) where applicable
+   - Always use pathlib.Path for file operations, never use os.path
+   - Create constants with meaningful names for:
+      - Numeric literals, like e.g. 
+      - For typical operations like e.g. `ROTATE_NORTH: Matrix = ...`
+   - Indicated mathematical operations instead of calculations, such as `middle_distance = WALL_LENGTH / 2` instead of `middle_distance = 0.75`
+   - Get a piece's dimensions from its properties: piece.studs_x, piece.plates_y, etc.
+- **DON'Ts:** 
+   - Alter generated source files
+   - Try to infer a piece's dimensions the part's variable name, like e.g. Window1X4X3
+   - Try and fix linter errors in the code

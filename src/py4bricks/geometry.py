@@ -22,7 +22,6 @@ from functools import reduce
 from numbers import Number
 from typing import overload
 
-
 LDU_PER_STUD = 20     # 1 stud = 20 LDU horizontally
 LDU_PER_PLATE = 8     # 1 plate = 8 LDU vertically
 LDU_PER_BRICK_HEIGHT = 24 # 1 brick row = 3 plates = 24 LDU
@@ -329,11 +328,34 @@ class Vector:
 
     def norm(self) -> None:
         """Normalize the vector."""
-        _length = abs(self)
+        _length = self.magn()
+
+        if _length == 0:
+            return
+
         self.x = self.x / _length
         self.y = self.y / _length
         self.z = self.z / _length
 
+    def magn(self) -> float:
+        """Magnitude (length) of the vector."""
+        return abs(self)
+
+    def normal_to(self, plane: Plane3D) -> Vector:
+        """Return the normal vector from this point to the plane.
+
+        The self vector must be a point on the plane, where the normal vector will have its origin.
+        """
+        plane_normal = plane.normal.copy()
+        plane_normal.norm()
+        point_to_plane = plane.point - self
+        distance = point_to_plane.dot(plane_normal)
+        return distance * plane_normal
+    
+
+def Origin() -> Vector:  # noqa: N802
+    """Return a vector representing the origin."""
+    return Vector(0, 0, 0)
 
 class Vector2D:
     """a Vector in 2D."""
@@ -396,6 +418,30 @@ class Vector2D:
         """Dot product."""
         return self.x * other.x + self.y * other.y
 
+
+class Plane3D:
+    """a Plane in 3D defined by a point and a normal vector."""
+
+    @classmethod
+    def from_points(cls, p1: Vector, p2: Vector, p3: Vector) -> Plane3D:
+        """Create a plane from three points."""
+        v1 = p2 - p1
+        v2 = p3 - p1
+        normal = v1.cross(v2)
+        return cls(point=p1, normal=normal)
+
+    @classmethod
+    def from_point_and_normal(cls, point: Vector, normal: Vector) -> Plane3D:
+        """Create a plane from a point and a normal vector."""
+        return cls(point=point, normal=normal)
+
+    def __init__(self, point: Vector, normal: Vector):
+        self.point = point
+        self.normal = normal
+
+    def normal_at(self, p: Vector) -> Vector:
+        """Return the normal vector to this plane with origin in the given point."""
+        return p.normal_to(self)
 
 class CoordinateSystem:
     """3D coordinate system representation."""

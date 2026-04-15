@@ -2,6 +2,7 @@
 
 import os
 import re
+from typing import Any
 
 
 def clean(input_string: str) -> str:
@@ -39,3 +40,17 @@ def flatten(input_dict: dict, parent_key: str = "", sep: str = ".") -> dict:
         else:
             items.append((new_key, value))
     return dict(items)
+
+def single_value_or_error(values: tuple, non_value: Any, param_name: str) -> Any:
+    """Filter a tuple of values returning one if only one or else throw error."""
+    matching_values = [v for v in values if v != non_value]
+    err_msg: str
+
+    match len(matching_values):
+        case 0:
+            err_msg = f"No value found for: {param_name}"
+        case 1:
+            return matching_values[0]
+        case _:
+            err_msg = f"Multiple values found for: {param_name}: {matching_values}"
+    raise ValueError(err_msg)

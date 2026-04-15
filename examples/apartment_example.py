@@ -118,22 +118,22 @@ inner_ew_wall = Wall(
 # North wall — living room (stud 2) and bedroom (stud 14), sill at 3 bricks up
 win_n_living  = Piece(colour=Medium_Azure, position=Vector(0,0,0), rotation=Identity(), part=Window1X4X3WithoutShutterTabs)
 win_n_bedroom = Piece(colour=Medium_Azure, position=Vector(0,0,0), rotation=Identity(), part=Window1X4X3WithoutShutterTabs)
-north_wall.insert(win_n_living,  studs_x=2,  plates_y=9)
-north_wall.insert(win_n_bedroom, studs_x=14, plates_y=9)
+north_wall.insert(win_n_living,  at_studs_x=2,  at_plates_y=9)
+north_wall.insert(win_n_bedroom, at_studs_x=14, at_plates_y=9)
 
 # East wall — bedroom window (3 studs from north end)
 win_east = Piece(colour=Medium_Azure, position=Vector(0,0,0), rotation=Identity(), part=Window1X4X3WithoutShutterTabs)
-east_wall.insert(win_east, studs_x=3, plates_y=9)
+east_wall.insert(win_east, at_studs_x=3, at_plates_y=9)
 
 # West wall — living room / kitchen window (3 studs from south end in local space)
 win_west = Piece(colour=Medium_Azure, position=Vector(0,0,0), rotation=Identity(), part=Window1X4X3WithoutShutterTabs)
-west_wall.insert(win_west, studs_x=3, plates_y=9)
+west_wall.insert(win_west, at_studs_x=3, at_plates_y=9)
 
 # ---------------------------------------------------------------------------
 # Entry door — south wall, centred (stud 8 from east end in south-wall local space)
 # ---------------------------------------------------------------------------
 entry_door = Piece(colour=Reddish_Brown, position=Vector(0,0,0), rotation=Identity(), part=Door1X4X6Frame)
-south_wall.insert(entry_door, studs_x=8, bricks_y=0)
+south_wall.insert(entry_door, at_studs_x=8, at_bricks_y=0)
 
 # ---------------------------------------------------------------------------
 # Output
