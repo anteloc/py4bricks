@@ -18,10 +18,10 @@ from __future__ import (
 
 import copy
 import math
+from fractions import Fraction
 from functools import reduce
 from numbers import Number
 from typing import overload
-
 
 LDU_PER_STUD = 20     # 1 stud = 20 LDU horizontally
 LDU_PER_PLATE = 8     # 1 plate = 8 LDU vertically
@@ -63,6 +63,19 @@ def brick_height_to_plates(brick_height: int) -> int:
 def brick_height_to_ldu(brick_height: int) -> float:
     """Convert brick rows to LDU."""
     return brick_height * LDU_PER_BRICK_HEIGHT
+
+def proportional(whole: int, proportion: tuple[int, int]) -> int:
+    """Return the integer number corresponding to a proportion of a whole number.
+    
+    For example, to get a 2/3 proportion of 15 studs, call proportional(15, Fraction(2, 3)), which will return 10 studs.
+    """
+    # Integrity check by creating a Fraction
+    # If this fails, it will raise an error that will give feedback about the invalid values
+    Fraction(proportion[0], proportion[1])
+
+    num, denom = proportion
+    
+    return (whole * num) // denom
 
 class MatrixError(Exception):
     """Exception raised for matrix operation errors."""
@@ -329,11 +342,34 @@ class Vector:
 
     def norm(self) -> None:
         """Normalize the vector."""
-        _length = abs(self)
+        _length = self.magn()
+
+        if _length == 0:
+            return
+
         self.x = self.x / _length
         self.y = self.y / _length
         self.z = self.z / _length
 
+    def magn(self) -> float:
+        """Magnitude (length) of the vector."""
+        return abs(self)
+
+    def normal_to(self, plane: Plane3D) -> Vector:
+        """Return the normal vector from this point to the plane.
+
+        The self vector must be a point on the plane, where the normal vector will have its origin.
+        """
+        plane_normal = plane.normal.copy()
+        plane_normal.norm()
+        point_to_plane = plane.point - self
+        distance = point_to_plane.dot(plane_normal)
+        return distance * plane_normal
+    
+
+def Origin() -> Vector:  # noqa: N802
+    """Return a vector representing the origin."""
+    return Vector(0, 0, 0)
 
 class Vector2D:
     """a Vector in 2D."""
@@ -396,6 +432,30 @@ class Vector2D:
         """Dot product."""
         return self.x * other.x + self.y * other.y
 
+
+class Plane3D:
+    """a Plane in 3D defined by a point and a normal vector."""
+
+    @classmethod
+    def from_points(cls, p1: Vector, p2: Vector, p3: Vector) -> Plane3D:
+        """Create a plane from three points."""
+        v1 = p2 - p1
+        v2 = p3 - p1
+        normal = v1.cross(v2)
+        return cls(point=p1, normal=normal)
+
+    @classmethod
+    def from_point_and_normal(cls, point: Vector, normal: Vector) -> Plane3D:
+        """Create a plane from a point and a normal vector."""
+        return cls(point=point, normal=normal)
+
+    def __init__(self, point: Vector, normal: Vector):
+        self.point = point
+        self.normal = normal
+
+    def normal_at(self, p: Vector) -> Vector:
+        """Return the normal vector to this plane with origin in the given point."""
+        return p.normal_to(self)
 
 class CoordinateSystem:
     """3D coordinate system representation."""
