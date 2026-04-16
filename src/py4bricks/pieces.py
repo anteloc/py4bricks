@@ -9,33 +9,21 @@ from __future__ import annotations
 from functools import reduce
 
 from py4bricks.colour import Colour
-from py4bricks.geometry import Identity, Matrix, Vector
-from py4bricks.library import get_dimensions
-
 from py4bricks.geometry import (
-    LDU_PER_BRICK_HEIGHT,
     LDU_PER_PLATE,
-    LDU_PER_STUD,
-    PLATES_PER_BRICK_HEIGHT,
     Identity,
+    Matrix,
     Vector,
-    YAxis,
-    brick_height_to_ldu,
-    brick_height_to_plates,
     ldu_to_studs,
-    plates_to_brick_height,
-    plates_to_ldu,
-    plates_to_studs,
-    studs_to_ldu,
-    studs_to_plates,
 )
+from py4bricks.library import get_dimensions
 
 
 class Piece:
     """A Piece is a Part with a defined colour, position, and rotation."""
 
-    def __init__(self, 
-                 colour: Colour, 
+    def __init__(self,
+                 colour: Colour,
                  position: Vector = Vector(0, 0, 0),
                  rotation: Matrix = Identity(),
                  part: str = "",
@@ -73,8 +61,8 @@ class Piece:
             rotation = self.rotation
         tup = tuple(reduce(lambda row1, row2: row1 + row2, rotation.rows))
 
-        # In LDraw, pieces have their origin at the center of the top face, 
-        # but we are working with the piece's origin at the left-front-bottom-corner, 
+        # In LDraw, pieces have their origin at the center of the top face,
+        # but we are working with the piece's origin at the left-front-bottom-corner,
         # so we need to apply an offset to get the correct position in LDraw coordinates.
         origin = position + rotation * self.offset
 

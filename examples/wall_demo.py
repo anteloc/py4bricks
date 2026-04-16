@@ -118,11 +118,25 @@ parallel_west_behind= Wall.from_dimensions(name="parallel_west_behind",
                                           colour=Neon_Yellow)
 parallel_west_behind.place_parallel_to(other_wall=west_wall, distance_studs=-30)
 
+east_wall = Wall.from_references(name="east_wall", 
+                                 same_height_as=north_wall, 
+                                 same_width_as=north_wall, 
+                                 colour=Sand_Green)
+east_wall.place(at=Vector(200, 0, 100), facing="east")
+
+south_wall = Wall.from_references(name="south_wall", 
+                                 same_height_as=north_wall, 
+                                 same_width_as=north_wall, 
+                                 colour=White)
+south_wall.place(at=Vector(-50, 0, -20), facing="south")
+
+
 reprs = [
     repr(north_wall), 
     repr(west_wall), 
     repr(parallel_west_front), 
-    repr(parallel_west_behind)
-
+    repr(parallel_west_behind),
+    repr(east_wall),
+    repr(south_wall)
 ]
 Path(Path(__file__).parent / "wall_demo.mpd").write_text("\n".join(reprs))

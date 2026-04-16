@@ -1,5 +1,4 @@
-"""
-Wall: rectangular brick wall
+"""Wall: rectangular brick wall
 
 A Wall is a rectangular surface of bricks, defined by:
   - length (studs along its face)
@@ -18,16 +17,11 @@ Methods:
 
 from __future__ import annotations
 
-import sys
 from typing import Literal
 
 from py4bricks.colour import Colour
-from py4bricks.errors import BuilderError
 from py4bricks.geometry import (
-    LDU_PER_BRICK_HEIGHT,
     LDU_PER_PLATE,
-    LDU_PER_STUD,
-    PLATES_PER_BRICK_HEIGHT,
     Identity,
     Origin,
     Plane3D,
@@ -36,20 +30,14 @@ from py4bricks.geometry import (
     YAxis,
     brick_height_to_ldu,
     brick_height_to_plates,
-    ldu_to_plates,
-    ldu_to_studs,
     plates_to_brick_height,
     plates_to_ldu,
-    plates_to_studs,
     studs_to_ldu,
-    studs_to_plates,
 )
-from py4bricks.library.colours import White, Medium_Azure
-from py4bricks.library.parts.bricks import Brick1X1
-from py4bricks.library.parts.cones import Cone1X1
+from py4bricks.library.colours import Medium_Azure, White
 from py4bricks.library.parts.bars import Spike2_4LWith4FinsWithBar0_4L
+from py4bricks.library.parts.bricks import Brick1X1
 from py4bricks.pieces import Group, Piece
-
 from py4bricks.utils import single_value_or_error
 
 # ---------------------------------------------------------------------------
@@ -95,34 +83,35 @@ class Wall(Group):
     internal structure and the insertion of pieces (windows, doors...) into it.
 
     """
+
     @classmethod
-    def from_dimensions(cls, 
-                        name: str, 
-                        studs_width: int, 
-                        bricks_height: int = 0, 
-                        plates_height: int = 0, 
+    def from_dimensions(cls,
+                        name: str,
+                        studs_width: int,
+                        bricks_height: int = 0,
+                        plates_height: int = 0,
                         colour: Colour = White,
     ) -> Wall:
         """Create a wall from explicit dimensions."""
-        return cls(name=name, 
-                   studs_width=studs_width, 
-                   bricks_height=bricks_height, 
-                   plates_height=plates_height, 
-                   colour=colour, 
+        return cls(name=name,
+                   studs_width=studs_width,
+                   bricks_height=bricks_height,
+                   plates_height=plates_height,
+                   colour=colour,
                 )
-    
+
     @classmethod
-    def from_references(cls, 
-                       name: str, 
-                       same_width_as: Group | Piece, 
-                       same_height_as: Group | Piece, 
-                       colour: Colour = White, 
+    def from_references(cls,
+                       name: str,
+                       same_width_as: Group | Piece,
+                       same_height_as: Group | Piece,
+                       colour: Colour = White,
     ) -> Wall:
         """Create a wall by copying dimensions from reference objects."""
-        return cls(name=name, 
-                   studs_width=same_width_as.studs_x, 
-                   plates_height=same_height_as.plates_y, 
-                   colour=colour, 
+        return cls(name=name,
+                   studs_width=same_width_as.studs_x,
+                   plates_height=same_height_as.plates_y,
+                   colour=colour,
                 )
 
     def __init__(
@@ -145,8 +134,8 @@ class Wall(Group):
             position: World-space position of the wall's origin. Mutually exclusive with parallel_to.
             facing: "north", "south", "east", or "west". Ignored when parallel_to is given (facing is inherited).
             colour: LDraw colour code for the wall bricks.
-        """
 
+        """
         # Enable for debugging: visual cues, etc.
         self.debug = True
 
@@ -175,7 +164,7 @@ class Wall(Group):
         # TODO Track inserted pieces as (x, y_brickrows, studs_x, plates_y) for overlap detection.
         self._insertions: list[tuple[int, int, int, int]] = []
 
-        # Use bricks height for rows because a wall is made of bricks: 
+        # Use bricks height for rows because a wall is made of bricks:
         # there will be as much rows as height in bricks
         self._fill_region(
             studs_x_start=0,
@@ -186,26 +175,39 @@ class Wall(Group):
 
         if self.debug:
             self._debug_hints()
-            
+
+    @property
+    def end_position(self) -> Vector:
+        """World-space position one stud past the last brick — the next corner point.
+
+        Always recomputed from the current position and rotation, so it stays
+        correct after `place()` or any other repositioning.
+        """
+        return (
+            self.position
+            + self.rotation * Vector(studs_to_ldu(self.studs_width), 0, 0)
+        )
+
     def _debug_hints(self):
         """Enable debug visual cues to understand wall positioning and orientation."""
         # first brick color tells us where the wall starts to be built (studs_x=0, bricks_y=0)
         self._fill[(0, 0)].colour = Medium_Azure
+        # add a spike/arrow-like to visually indicate the wall's facing direction
+        # and the orientation of insertions (studs_x grows to the right, bricks_y grows upwards)
         plane_normal = self._wall_plane().normal
         wall_normal = plane_normal / plane_normal.magn()
-        facing_arrow = Piece(
+        Piece(
             colour=Medium_Azure,
-            position=wall_normal + Vector(0, 0, studs_to_ldu(4)),
+            position=wall_normal + Vector(0, 0, studs_to_ldu(4)), # place the arrowhead through the wall
             rotation=Identity().rotate(-90, XAxis),  # rotate to point along the wall plane instead of upwards
             part=Spike2_4LWith4FinsWithBar0_4L,
             group=self)
-        return [facing_arrow]
 
-    def _fill_region(self, 
-                     studs_x_start: int, 
-                     studs_x_end: int, 
-                     bricks_y_start: int, 
-                     bricks_y_end: int
+    def _fill_region(self,
+                     studs_x_start: int,
+                     studs_x_end: int,
+                     bricks_y_start: int,
+                     bricks_y_end: int,
     ) -> None:
         """Fill the specified area of the wall with bricks."""
         for row in range(bricks_y_start, bricks_y_end):
@@ -230,10 +232,10 @@ class Wall(Group):
         plate_up = self.rotation * Vector(0, plates_to_ldu(1), 0)  # 1 plate height to where the wall grows in the Y direction
         return Plane3D.from_points(p1=wall_origin, p2=stud_to_right, p3=plate_up)
 
-    def insert(self, 
-               piece: Piece, 
-               at_studs_x: int, 
-               at_plates_y: int = -1, 
+    def insert(self,
+               piece: Piece,
+               at_studs_x: int,
+               at_plates_y: int = -1,
                at_bricks_y: int = -1,
     ) -> None:
         """Place a piece (e.g. window, door...) and remove bricks to make room for it.
@@ -246,8 +248,8 @@ class Wall(Group):
             studs_x: Insert position x in studs from the wall's left end.
             plates_y: Insert position y in plates from the wall base.
             bricks_y: Insert position y in brick rows from the wall base (alternative to plates_y).
-        """
 
+        """
         at_y_values = (
             at_bricks_y,
             plates_to_brick_height(at_plates_y) if at_plates_y >= 0 else -1,
@@ -266,7 +268,7 @@ class Wall(Group):
         # avoid removing the upper row due to studs from the piece taking space upwards
         opening_bricks_height = p_bricks_height - 1
 
-        self.opening(at_studs_x=at_studs_x, 
+        self.opening(at_studs_x=at_studs_x,
                      studs_width=piece.studs_x,
                      at_bricks_y=_at_bricks_y,
                      bricks_height=opening_bricks_height,
@@ -287,11 +289,11 @@ class Wall(Group):
         self._insertions.append((at_studs_x, _at_plates_y, piece.studs_x, piece.plates_y))
 
     def opening(self,
-                at_studs_x: int, 
-                studs_width: int, 
-                at_plates_y: int = -1, 
-                plates_height: int = 0, 
-                at_bricks_y: int = -1, 
+                at_studs_x: int,
+                studs_width: int,
+                at_plates_y: int = -1,
+                plates_height: int = 0,
+                at_bricks_y: int = -1,
                 bricks_height: int = 0) -> None:
         """Create an opening with the given width and height by removing bricks starting at (studs_x, plates_y/bricks_y).
 
@@ -339,6 +341,7 @@ class Wall(Group):
 
     def place(self, at: Vector, facing: Literal["north", "south", "east", "west"]) -> None:
         """Place the wall at the given position and facing direction."""
+        self.facing = facing
         self.rotation = FACING_ROTATIONS[facing]
         self.position = at
 
