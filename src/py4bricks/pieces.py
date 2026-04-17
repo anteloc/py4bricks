@@ -13,6 +13,7 @@ from py4bricks.colour import Colour
 from py4bricks.geometry import (
     LDU_PER_PLATE,
     LDU_PER_STUD_HEIGHT,
+    LDU_PER_STUD,
     Identity,
     Matrix,
     Vector,
@@ -25,14 +26,20 @@ class Piece:
     """A Piece is a Part with a defined colour, position, and rotation."""
 
     @classmethod
-    def attach(cls, piece: Piece, to: Piece, side: Literal["front", "back", "left", "right"]) -> None:
-        """Attach piece to another piece by aligning a stud on piece with the given offset to a stud on the other piece."""
-       # Attach the piece as-is, with it's current rotation, to the given side
-       # of the other piece, being sides:
-       # - front: negative Z direction
-       # - back: positive Z direction
-       # - left: negative X direction
-       # - right: positive X direction
+    def attach(cls, 
+               piece: Piece, 
+               to: Piece, 
+               side: Literal["front", "back", "left", "right"]) -> Piece:
+        """Attach piece to another piece by aligning it to the given side.
+        
+        Attach the piece as-is, with it's current rotation, to the given side
+        of the other piece, being sides:
+            - front: negative Z direction
+            - back: positive Z direction
+            - left: negative X direction
+            - right: positive X direction
+
+        """
         if side == "front":
             offset = Vector(0, 0, -piece.ldu_z)
         elif side == "back":
@@ -46,12 +53,16 @@ class Piece:
         piece.position = to.position + to.rotation * offset
         piece.rotation = to.rotation
 
+        return piece
+
     @classmethod
-    def place_on_top(cls, piece: Piece, of: Piece) -> None:
+    def place_on_top(cls, piece: Piece, of: Piece, offset_x_studs: int = 0, offset_z_studs: int = 0) -> Piece:
         """Place piece on top of another piece by aligning the bottom face of piece with the top face of the other piece."""
-        offset = Vector(0, of.ldu_y - LDU_PER_STUD_HEIGHT, 0)
+        offset = Vector(offset_x_studs * LDU_PER_STUD, of.ldu_y - LDU_PER_STUD_HEIGHT, offset_z_studs * LDU_PER_STUD)
         piece.position = of.position + of.rotation * offset
         piece.rotation = of.rotation
+
+        return piece
 
     def __init__(self,
                  colour: Colour,
