@@ -63,8 +63,8 @@ class PitchedRoof(Group):
                 self.roof_across_ridge_ldu = self.box_width_ldu
                 self.ridge_axis = "z"
                 self.piece_rotations = {
-                    "left": Identity().rotate(-90, YAxis),
-                    "right": Identity().rotate(90, YAxis)
+                    "left": Identity().rotate(90, YAxis),
+                    "right": Identity().rotate(-90, YAxis)
                 }
             case "east-west":
                 # Ridge along X; slopes face north/south (Z axis)
