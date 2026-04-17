@@ -8,8 +8,8 @@ from py4bricks.pieces import Piece
 
 # Create a box with specific dimensions and colour
 base = Box(
-    box_width_studs=20,
-    box_depth_studs=10,
+    box_width_studs=12,
+    box_depth_studs=20,
     box_height_bricks=12,
     colour=White,
 )
