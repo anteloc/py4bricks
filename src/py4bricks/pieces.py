@@ -7,10 +7,12 @@ from __future__ import annotations
 
 # pylint: disable=too-many-arguments, too-few-public-methods
 from functools import reduce
+from typing import Literal
 
 from py4bricks.colour import Colour
 from py4bricks.geometry import (
     LDU_PER_PLATE,
+    LDU_PER_STUD_HEIGHT,
     Identity,
     Matrix,
     Vector,
@@ -21,6 +23,35 @@ from py4bricks.library import get_dimensions
 
 class Piece:
     """A Piece is a Part with a defined colour, position, and rotation."""
+
+    @classmethod
+    def attach(cls, piece: Piece, to: Piece, side: Literal["front", "back", "left", "right"]) -> None:
+        """Attach piece to another piece by aligning a stud on piece with the given offset to a stud on the other piece."""
+       # Attach the piece as-is, with it's current rotation, to the given side
+       # of the other piece, being sides:
+       # - front: negative Z direction
+       # - back: positive Z direction
+       # - left: negative X direction
+       # - right: positive X direction
+        if side == "front":
+            offset = Vector(0, 0, -piece.ldu_z)
+        elif side == "back":
+            offset = Vector(0, 0, to.ldu_z)
+        elif side == "left":
+            offset = Vector(-piece.ldu_x, 0, 0)
+        elif side == "right":
+            offset = Vector(to.ldu_x, 0, 0)
+        else:
+            raise ValueError(f"Invalid side: {side}")
+        piece.position = to.position + to.rotation * offset
+        piece.rotation = to.rotation
+
+    @classmethod
+    def place_on_top(cls, piece: Piece, of: Piece) -> None:
+        """Place piece on top of another piece by aligning the bottom face of piece with the top face of the other piece."""
+        offset = Vector(0, of.ldu_y - LDU_PER_STUD_HEIGHT, 0)
+        piece.position = of.position + of.rotation * offset
+        piece.rotation = of.rotation
 
     def __init__(self,
                  colour: Colour,

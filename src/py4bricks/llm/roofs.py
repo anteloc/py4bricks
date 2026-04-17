@@ -50,6 +50,12 @@ class PitchedRoof(Group):
         self._build_side_slope("left")
         self._build_side_slope("right")
 
+        finishing_part = self.ridge_part_even if self.even_width else self.ridge_part_odd
+        finishing_piece = Piece(part=finishing_part,
+                                colour=self.colour)
+
+        self._finish_ridge(finishing_piece=finishing_piece)
+
         # TODO fill in the gable triangles on the non-sloped walls
 
     def _roof_calculations(self) -> None:
@@ -61,7 +67,6 @@ class PitchedRoof(Group):
         # Horizontal run per row going up the slope (1 stud for a 45° slope brick)
         self.piece_step_across_ridge = piece.ldu_x
 
-        remove_last_row = 0
         match self.ridge_orientation:
             case "north-south":
                 # Ridge along Z; slopes face east/west (X axis)
@@ -105,17 +110,14 @@ class PitchedRoof(Group):
                       rotation=self.piece_rotations[slope_side],
                       colour=self.colour)
         
-        finishing_part = self.ridge_part_even if self.even_width else self.ridge_part_odd
-        finishing_piece = Piece(part=finishing_part,
-                                rotation=self.piece_rotations[slope_side], 
-                                colour=self.colour)
+        
 
         self._fill_slope(
             piece=piece,
             slope_side=slope_side,
         )
 
-        self._finish_ridge(finishing_piece=finishing_piece)
+        
 
     def _fill_slope(self,
                      piece: Piece,
@@ -151,10 +153,14 @@ class PitchedRoof(Group):
 
     def _finish_ridge(self, finishing_piece: Piece) -> None:
         """Add finishing pieces along the ridge, either double slope bricks for an even width, or tiles for an odd width."""
+
+        piece_rotation = Identity().rotate(90, YAxis) if self.ridge_axis == "z" else Identity()
+
         row = self.num_rows_per_side
         for col in range(self.num_pieces_along_ridge):
 
                 p = finishing_piece.copy()
+                p.rotation = piece_rotation
 
                 y = row * self.piece_height_ldu
                 along_pos = col * self.piece_step_along_ridge
