@@ -27,6 +27,7 @@ LDU_PER_STUD = 20     # 1 stud = 20 LDU horizontally
 LDU_PER_PLATE = 8     # 1 plate = 8 LDU vertically
 LDU_PER_BRICK_HEIGHT = 24 # 1 brick row = 3 plates = 24 LDU
 PLATES_PER_BRICK_HEIGHT = 3  # used to convert brick rows ↔ plates
+LDU_PER_STUD_HEIGHT = 4 # 1 stud height = 4 LDU vertically
 
 def studs_to_ldu(studs: int) -> float:
     """Convert studs to LDU."""

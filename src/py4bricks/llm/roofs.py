@@ -6,7 +6,7 @@ from py4bricks.colour import Colour
 from py4bricks.library.colours import Red
 from py4bricks.library.parts.slopes import SlopeBrick452X1
 from py4bricks.llm.box import Box
-from py4bricks.geometry import Identity, Vector, YAxis, brick_height_to_ldu, ldu_to_plates, studs_to_ldu
+from py4bricks.geometry import LDU_PER_STUD_HEIGHT, Identity, Vector, YAxis, brick_height_to_ldu, ldu_to_plates, studs_to_ldu, plates_to_ldu
 from py4bricks.pieces import Group, Piece
 
 # Roof types: https://blog.rooroofing.com.au/guide-pitched-roofs
@@ -25,7 +25,7 @@ class PitchedRoof(Group):
                  colour: Colour = Red,
     ) -> None:
         
-        ref_wall = box_to_cover["west_wall"] if ridge_orientation == "north-south" else box_to_cover["south_wall"]
+        ref_wall = box_to_cover["north_wall"] if ridge_orientation == "north-south" else box_to_cover["west_wall"]
 
         # roof will be positioned just on top of the box, i.e. at the height of a wall
         roof_pos = ref_wall.position + Vector(0, brick_height_to_ldu(ref_wall.bricks_height), 0)
@@ -50,7 +50,7 @@ class PitchedRoof(Group):
     def _roof_calculations(self, slope_part: str, slope_angle: float) -> None:
         """Calculate the number of slope pieces needed to cover the roof, and the position of each piece on top of the box."""
         piece = Piece(part=slope_part, colour=self.colour)
-        self.piece_height_ldu = piece.ldu_y
+        self.piece_height_ldu = piece.ldu_y - LDU_PER_STUD_HEIGHT # studs are connection points, they don't contribute to the height
         # After rotation, piece.ldu_x (1 stud) aligns along the ridge
         self.piece_step_along_ridge = piece.ldu_x
         # Horizontal run per row going up the slope (1 stud for a 45° slope brick)
@@ -112,11 +112,13 @@ class PitchedRoof(Group):
 
                 # Each row steps inward from the eave toward the ridge
                 if slope_side == "left":
-                    across_pos = row * self.piece_step_across_ridge
+                    across_pos = (row - 1.5) * self.piece_step_across_ridge
+                    along_pos += studs_to_ldu(1)
+                    piece.colour = Red
                 else:
                     across_pos = (
                         self.roof_across_ridge_ldu
-                        - (row + 1) * self.piece_step_across_ridge
+                        - (row + 0.5) * self.piece_step_across_ridge
                     )
 
                 if self.ridge_axis == "z":
