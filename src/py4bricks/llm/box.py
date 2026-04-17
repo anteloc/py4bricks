@@ -6,6 +6,7 @@ from py4bricks.colour import Colour
 from py4bricks.geometry import (
     Vector,
     plates_to_brick_height,
+    brick_height_to_plates
 )
 from py4bricks.library.colours import White
 from py4bricks.llm.wall import Wall
@@ -35,6 +36,11 @@ class Box:
         )
 
         _box_height_bricks = single_value_or_error(height_values, 0, "height (bricks or plates)")
+
+        self.box_width_studs = box_width_studs
+        self.box_depth_studs = box_depth_studs
+        self.box_height_bricks = _box_height_bricks
+        self.box_height_plates = brick_height_to_plates(_box_height_bricks)
 
         self.wall_layout = WallLayout(
             walls_height_bricks=_box_height_bricks,
