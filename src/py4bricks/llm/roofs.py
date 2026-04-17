@@ -42,121 +42,89 @@ class PitchedRoof(Group):
 
         self._roof_calculations(slope_part=SlopeBrick452X1, slope_angle=45)
 
-        self._build_side_slope("left", asc_desc="asc")
-        # self._build_side_slope("right", asc_desc="desc") 
+        self._build_side_slope("left")
+        self._build_side_slope("right")
 
-
-        # TODO implement a similar algorithm to Wall to position the slopes (both sides of the ridge) 
-        # and then to fill in the gap to the non-sloped walls
+        # TODO fill in the gable triangles on the non-sloped walls
 
     def _roof_calculations(self, slope_part: str, slope_angle: float) -> None:
         """Calculate the number of slope pieces needed to cover the roof, and the position of each piece on top of the box."""
         piece = Piece(part=slope_part, colour=self.colour)
-        piece_height_ldu = piece.ldu_y
-        piece_width_ldu = piece.ldu_z # will be aligned either in the x or z axis depending on the ridge orientation
+        self.piece_height_ldu = piece.ldu_y
+        # After rotation, piece.ldu_x (1 stud) aligns along the ridge
+        self.piece_step_along_ridge = piece.ldu_x
+        # Horizontal run per row going up the slope (1 stud for a 45° slope brick)
+        self.piece_step_across_ridge = piece.ldu_x
 
-
-        # arbirarily define the width and depth of the roof based on the ridge orientation, to simplify the calculations
         match self.ridge_orientation:
             case "north-south":
-                self.roof_width_ldu, self.roof_depth_ldu = self.box_depth_ldu, self.box_width_ldu
+                # Ridge along Z; slopes face east/west (X axis)
+                self.roof_along_ridge_ldu = self.box_depth_ldu
+                self.roof_across_ridge_ldu = self.box_width_ldu
                 self.ridge_axis = "z"
                 self.piece_rotations = {
                     "left": Identity().rotate(-90, YAxis),
                     "right": Identity().rotate(90, YAxis)
                 }
             case "east-west":
-                self.roof_width_ldu, self.roof_depth_ldu = self.box_width_ldu, self.box_depth_ldu
+                # Ridge along X; slopes face north/south (Z axis)
+                self.roof_along_ridge_ldu = self.box_width_ldu
+                self.roof_across_ridge_ldu = self.box_depth_ldu
                 self.ridge_axis = "x"
                 self.piece_rotations = {
                     "left": Identity().rotate(0, YAxis),
                     "right": Identity().rotate(180, YAxis)
                 }
-        
-        def height_from_slope(c1, slope):
-            slope_rad = math.radians(slope)
-            t = math.tan(slope_rad)
-            c2 = c1 * t**2
-            return c2
-        
-        c1 = self.roof_width_ldu / 2
-        self.roof_height_ldu = height_from_slope(c1, slope_angle)
 
-        self.num_pieces_high = math.ceil(self.roof_height_ldu / piece_height_ldu)
-        self.num_pieces_wide = math.ceil(self.roof_depth_ldu / piece_width_ldu)
+        # Roof height from the across-ridge half-span
+        half_across = self.roof_across_ridge_ldu / 2
+        self.roof_height_ldu = half_across * math.tan(math.radians(slope_angle))
 
-
-    def _build_side_slope(self, slope_side: Literal["left", "right"], asc_desc: Literal["asc", "desc"]) -> None:
-        """Build the slope on one side of the roof, either left or right, and place it on top of the side of the box."""
-        
-        # (north, south) or (east, west) depending on ridge orientation
-        # arbitrarily: left = 1st element of the tuple, right = 2nd element of the tuple
-        ors = self.ridge_orientation.split("-")
-        
-        piece = Piece(part=SlopeBrick452X1, 
-                      rotation=self.piece_rotations[slope_side],
-                      colour=self.colour)
-        high_start_pieces, high_stop_pieces, wide_start_pieces, wide_stop_pieces = 0, 0, 0, 0
-
-        match slope_side:
-            case "left":
-                high_start_pieces = 0
-                high_stop_pieces = self.num_pieces_high
-                wide_start_pieces = 0
-                wide_stop_pieces = self.num_pieces_wide // 2
-            case "right":
-                high_start_pieces = self.num_pieces_high
-                high_stop_pieces = 0
-                wide_start_pieces = self.num_pieces_wide // 2
-                wide_stop_pieces = self.num_pieces_wide
-        
-        self._fill_region(
-            piece=piece,
-            asc_desc=asc_desc,
-            rows_along_axis=self.ridge_axis,
-            high_start_pieces=high_start_pieces,
-            high_stop_pieces=high_stop_pieces,
-            wide_start_pieces=wide_start_pieces,
-            wide_stop_pieces=wide_stop_pieces,
+        self.num_pieces_along_ridge = math.ceil(
+            self.roof_along_ridge_ldu / self.piece_step_along_ridge
+        )
+        self.num_rows_per_side = math.ceil(
+            half_across / self.piece_step_across_ridge
         )
 
-        # gable rows will be parallel to the ridge, which means placing pieces at the same height
-            
+    def _build_side_slope(self, slope_side: Literal["left", "right"]) -> None:
+        """Build the slope on one side of the roof, either left or right, and place it on top of the side of the box."""
+        piece = Piece(part=SlopeBrick452X1,
+                      rotation=self.piece_rotations[slope_side],
+                      colour=self.colour)
+
+        self._fill_region(
+            piece=piece,
+            slope_side=slope_side,
+        )
+
     def _fill_region(self,
                      piece: Piece,
-                     asc_desc: Literal["asc", "desc"],
-                     rows_along_axis: str,
-                     high_start_pieces: int,
-                     high_stop_pieces: int,
-                     wide_start_pieces: int,
-                     wide_stop_pieces: int,
+                     slope_side: Literal["left", "right"],
     ) -> None:
-        """Fill the specified area of the wall with bricks."""
-
-        row_step = 1 if asc_desc == "asc" else -1
-
-        # for row in range(high_start_pieces, high_stop_pieces, row_step):
-        for row in range(1):
-            for row_idx in range(wide_start_pieces, wide_stop_pieces):
+        """Fill one slope side with slope bricks, row by row from eave to ridge."""
+        for row in range(self.num_rows_per_side):
+            for col in range(self.num_pieces_along_ridge):
                 p = piece.copy()
 
-                x, y, z = 0, 0, 0
-                y = row * piece.ldu_y
-                
-                match rows_along_axis:
-                    case "x":
-                        x = 0
-                        z = row_idx * piece.ldu_x
-                    case "z":
-                        x = row_idx * piece.ldu_x
-                        z = 0
+                y = row * self.piece_height_ldu
+                along_pos = col * self.piece_step_along_ridge
 
-                pos = Vector(
-                    x=x,
-                    y=y,
-                    z=z,
-                )
-                p.position = pos
+                # Each row steps inward from the eave toward the ridge
+                if slope_side == "left":
+                    across_pos = row * self.piece_step_across_ridge
+                else:
+                    across_pos = (
+                        self.roof_across_ridge_ldu
+                        - (row + 1) * self.piece_step_across_ridge
+                    )
+
+                if self.ridge_axis == "z":
+                    x, z = across_pos, along_pos
+                else:
+                    x, z = along_pos, across_pos
+
+                p.position = Vector(x=x, y=y, z=z)
                 self.add_piece(p)
 
 
