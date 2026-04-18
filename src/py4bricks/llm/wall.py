@@ -354,3 +354,7 @@ class Wall(Group):
         normal_ldu = studs_to_ldu(distance_studs)
         self.rotation = other_wall.rotation
         self.position = other_wall.position + other_wall.rotation * Vector(0, 0, normal_ldu)
+
+    def brick_at(self, studs_x: int, bricks_y: int) -> Piece | None:
+        """Get the brick at the given wall coordinates (studs_x, bricks_y), or None if there is no brick."""
+        return self._fill.get((studs_x, bricks_y))

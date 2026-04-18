@@ -56,9 +56,13 @@ class Piece:
         return piece
 
     @classmethod
-    def place_on_top(cls, piece: Piece, of: Piece, offset_x_studs: int = 0, offset_z_studs: int = 0) -> Piece:
-        """Place piece on top of another piece by aligning the bottom face of piece with the top face of the other piece."""
-        offset = Vector(offset_x_studs * LDU_PER_STUD, of.ldu_y - LDU_PER_STUD_HEIGHT, offset_z_studs * LDU_PER_STUD)
+    def place_on_top(cls, piece: Piece, of: Piece, offset_lr_studs: int = 0, offset_bf_studs: int = 0) -> Piece:
+        """Place piece on top of another piece by aligning the bottom face of piece with the top face of the other piece
+        
+        If offsets are given, piece will be placed with the given offset in studs to the left/right and back/front directions,
+        where left and front are negative directions, and right and back are positive directions
+        ."""
+        offset = Vector(offset_lr_studs * LDU_PER_STUD, of.ldu_y - LDU_PER_STUD_HEIGHT, offset_bf_studs * LDU_PER_STUD)
         piece.position = of.position + of.rotation * offset
         piece.rotation = of.rotation
 
