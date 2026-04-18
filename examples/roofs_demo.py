@@ -17,7 +17,7 @@ base = Box(
 
 roof = PitchedRoof(
     box_to_cover=base,
-    ridge_orientation="north-south",
+    ridge_orientation="east-west",
     colour=Blue,
 )
 
