@@ -42,7 +42,10 @@ class PitchedRoof(Group):
         
         match ridge_orientation:
             case "north-south":
-                self.ref_wall = box_to_cover["west_wall"]
+                self.ref_walls = {
+                    "left": box_to_cover["west_wall"],
+                    "right": box_to_cover["east_wall"],
+                }
                 self.row_length_studs = box_to_cover.box_depth_studs
                 self.span_studs = box_to_cover.box_width_studs
                 self.pieces_rotation = {
@@ -50,7 +53,10 @@ class PitchedRoof(Group):
                     "right": Identity().rotate(180, axis=YAxis),
                 }
             case "east-west":
-                self.ref_wall = box_to_cover["south_wall"]
+                self.ref_walls = {
+                    "left": box_to_cover["south_wall"],
+                    "right": box_to_cover["north_wall"],
+                }
                 self.row_length_studs = box_to_cover.box_width_studs
                 self.span_studs = box_to_cover.box_depth_studs
                 self.pieces_rotation = {
@@ -79,9 +85,9 @@ class PitchedRoof(Group):
 
         # roof will be positioned just on top of the box, i.e. at the height of a wall
         # self.roof_pos = self.ref_wall.position + Vector(0, brick_height_to_ldu(self.ref_wall.bricks_height), 0)
-        self.roof_pos = self.ref_wall.position
+        self.roof_pos = self.ref_walls["left"].position
 
-        super().__init__(position=self.roof_pos, rotation=self.ref_wall.rotation)
+        super().__init__(position=self.roof_pos, rotation=self.ref_walls["left"].rotation)
 
         self._build_roof()
 
@@ -102,15 +108,17 @@ class PitchedRoof(Group):
         """
         pieces: list[Piece] = []
 
-        # starting position: on top of the ref wall, at the corresponding edge
-        start_z = 0 if side == "left" else studs_to_ldu(self.span_studs)
+        wall = self.ref_walls[side]
+        wall_start_brick = wall.brick_at(studs_x=0, bricks_y=wall.bricks_height - 1)
 
         first_piece = Piece(
             part=self.slope_part,
-            position=Vector(0, self.ref_wall.ldu_y, start_z),
             rotation=self.pieces_rotation[side],
             colour=self.colour if side == "left" else Red,
         )
+
+        first_piece = Piece.place_on_top(piece=first_piece, of=wall_start_brick)
+        
         pieces.append(first_piece)
         self.add_piece(first_piece)
 
