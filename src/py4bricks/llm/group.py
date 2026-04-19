@@ -18,6 +18,9 @@ from py4bricks.geometry import (
 )
 from py4bricks.pieces import Piece
 
+# Half an LDU — smaller than any grid step; used for position matching
+_POSITION_TOLERANCE: float = 0.5
+
 
 @dataclass
 class Group:
@@ -100,3 +103,32 @@ class Group:
     def add_piece(self, piece: Piece) -> None:
         """Alias for add(). Called by Piece.attach() when piece.group is this Group."""
         self.add(piece)
+
+    def remove_piece_at(
+        self, studs_x: int, plates_y: int, studs_z: int,
+    ) -> Piece | None:
+        """Remove and return the Piece at the given group-local coordinates, or None.
+
+        Coordinates are relative to this Group's own origin (same system used
+        when pieces were added). Searches nested sub-Groups recursively.
+        """
+        target = Vector(
+            studs_to_ldu(studs_x), plates_to_ldu(plates_y), studs_to_ldu(studs_z),
+        )
+        return self._remove_at(target, container=self)
+
+    def _remove_at(self, target: Vector, container: Group) -> Piece | None:
+        """Recursively search container's children for a Piece near target."""
+        for child in list(container.children):
+            if isinstance(child, Piece):
+                pos = child.position
+                if (abs(pos.x - target.x) < _POSITION_TOLERANCE
+                        and abs(pos.y - target.y) < _POSITION_TOLERANCE
+                        and abs(pos.z - target.z) < _POSITION_TOLERANCE):
+                    container.children.remove(child)
+                    child.group = None
+                    return child
+            elif isinstance(child, Group):
+                if result := self._remove_at(target, container=child):
+                    return result
+        return None

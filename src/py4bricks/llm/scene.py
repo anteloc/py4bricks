@@ -170,6 +170,21 @@ class Scene:
             None,
         )
 
+    def remove_piece_at(self, studs_x: int, plates_y: int, studs_z: int) -> Piece | None:
+        """Remove and return the Piece at the given world-space grid position, or None.
+
+        Removes from the piece's immediate parent container (Scene or Group).
+        """
+        piece = self.piece_at(studs_x, plates_y, studs_z)
+        if piece is None:
+            return None
+        if isinstance(piece.group, Group):
+            piece.group.children.remove(piece)
+        else:
+            self.children.remove(piece)  # piece.group is this Scene
+        piece.group = None
+        return piece
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
