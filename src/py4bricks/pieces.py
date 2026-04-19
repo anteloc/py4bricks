@@ -27,52 +27,88 @@ class Piece:
     """A Piece is a Part with a defined colour, position, and rotation."""
 
     @classmethod
-    def attach_to(cls, 
-               piece: Piece, 
-               to: Piece, 
-               side: Literal["front", "back", "left", "right"]) -> Piece:
+    def attach_to(
+        cls,
+        piece: Piece,
+        to: Piece,
+        side: Literal["front", "back", "left", "right", "top", "bottom"],
+        orientation: Literal["north", "south", "east", "west"] | None = None,
+        right_studs: int = 0,
+        back_studs: int = 0,
+    ) -> Piece:
         """Attach piece to another piece by aligning it to the given side.
-        
-        Attach the piece as-is, with it's current rotation, to the given side
-        of the other piece, being sides:
-            - front: negative Z direction
-            - back: positive Z direction
-            - left: negative X direction
-            - right: positive X direction
 
+        Horizontal sides (position relative to to):
+            - front:  negative Z direction
+            - back:   positive Z direction
+            - left:   negative X direction
+            - right:  positive X direction
+
+        Vertical sides (right_studs/back_studs shift within to's local frame):
+            - top:    place piece flush on top of to
+            - bottom: place piece flush under to
+
+        orientation: final facing of the attached piece.
+            None (default) inherits to's orientation — suitable for aligned
+            structures like walls.  Specify explicitly when the piece must face
+            a different direction (e.g. a corner column, an outward-facing window).
         """
-        if side == "front":
-            offset = Vector(0, 0, -piece.ldu_z)
-        elif side == "back":
-            offset = Vector(0, 0, to.ldu_z)
-        elif side == "left":
-            offset = Vector(-piece.ldu_x, 0, 0)
-        elif side == "right":
-            offset = Vector(to.ldu_x, 0, 0)
-        else:
-            raise ValueError(f"Invalid side: {side}")
-        piece.position = to.position + to.rotation * offset
-        piece.rotation = to.rotation
+        final_rot = orientation_to_rotation(orientation) if orientation else to.rotation
 
+        match side:
+            case "front":
+                offset = Vector(0, 0, -piece.ldu_z)
+            case "back":
+                offset = Vector(0, 0, to.ldu_z)
+            case "left":
+                offset = Vector(-piece.ldu_x, 0, 0)
+            case "right":
+                offset = Vector(to.ldu_x, 0, 0)
+            case "top":
+                return Piece.place_on_top(
+                    piece=piece, of=to,
+                    right_studs=right_studs, back_studs=back_studs,
+                    orientation=orientation,
+                )
+            case "bottom":
+                of_body_half    = (to.ldu_y    - LDU_PER_STUD_HEIGHT) / 2
+                piece_body_half = (piece.ldu_y - LDU_PER_STUD_HEIGHT) / 2
+                piece.position  = to.position + to.rotation * Vector(
+                    x=right_studs * LDU_PER_STUD,
+                    y=-(of_body_half + piece_body_half),
+                    z=back_studs  * LDU_PER_STUD,
+                )
+                piece.rotation = final_rot
+                return piece
+            case _:
+                raise ValueError(f"Invalid side: {side}")
+
+        piece.position = to.position + to.rotation * offset
+        piece.rotation = final_rot
         return piece
 
     @classmethod
-    def place_on_top(cls, piece: Piece, of: Piece, offset_lr_studs: int = 0, offset_bf_studs: int = 0) -> Piece:
-        """Place piece on top of another piece by aligning the bottom face of piece with the top face of the other piece
-        
-        If offsets are given, piece will be placed with the given offset in studs to the left/right and back/front directions,
-        where left and front are negative directions, and right and back are positive directions
-        ."""
+    def place_on_top(
+        cls,
+        piece: Piece,
+        of: Piece,
+        right_studs: int = 0,
+        back_studs: int = 0,
+        orientation: Literal["north", "south", "east", "west"] | None = None,
+    ) -> Piece:
+        """Place piece flush on top of another piece.
+
+        right_studs / back_studs shift the new piece within of's local frame.
+        orientation overrides the facing; None inherits of's orientation.
+        """
         of_body_half    = (of.ldu_y    - LDU_PER_STUD_HEIGHT) / 2
         piece_body_half = (piece.ldu_y - LDU_PER_STUD_HEIGHT) / 2
-        offset = Vector(
-            x=offset_lr_studs * LDU_PER_STUD,
+        piece.position = of.position + of.rotation * Vector(
+            x=right_studs * LDU_PER_STUD,
             y=of_body_half + piece_body_half,
-            z=offset_bf_studs * LDU_PER_STUD,
+            z=back_studs  * LDU_PER_STUD,
         )
-        piece.position = of.position + of.rotation * offset
-        piece.rotation = of.rotation
-
+        piece.rotation = orientation_to_rotation(orientation) if orientation else of.rotation
         return piece
 
     @classmethod
@@ -148,13 +184,26 @@ class Piece:
             rotation = self.rotation
         return self.render(position, rotation)
 
-    def attach(self, piece: Piece, side: Literal["front", "back", "left", "right"]) -> Piece:
-        """Attach the given piece to this one, aligning the attached piece to the given side."""
-        attached = Piece.attach_to(piece=piece, to=self, side=side)
+    def attach(
+        self,
+        piece: Piece,
+        side: Literal["front", "back", "left", "right", "top", "bottom"],
+        orientation: Literal["north", "south", "east", "west"] | None = None,
+        right_studs: int = 0,
+        back_studs: int = 0,
+    ) -> Piece:
+        """Attach the given piece to this one on the given side.
 
+        orientation overrides the attached piece's facing; None inherits this piece's.
+        right_studs / back_studs are only meaningful for side="top" or "bottom".
+        """
+        attached = Piece.attach_to(
+            piece=piece, to=self, side=side,
+            orientation=orientation,
+            right_studs=right_studs, back_studs=back_studs,
+        )
         if self.group:
             self.group.add_piece(attached)
-
         return attached
 
     def displace_by(self, displacement: Vector) -> None:

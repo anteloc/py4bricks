@@ -34,6 +34,9 @@ class Group:
         world_rot = parent_rot * local_rot
 
     Rotating or moving a Group automatically transforms all of its descendants.
+
+    Pieces added via add() have their .group set to this Group, so piece.attach()
+    auto-registers the new piece here without an explicit add() call.
     """
 
     studs_x:     InitVar[int] = 0
@@ -42,7 +45,7 @@ class Group:
     orientation: InitVar[Literal["north", "south", "east", "west"]] = "north"
     children:    list[Piece | Group] = field(default_factory=list)
 
-    # Derived from init vars in __post_init__; used by Scene._resolve()
+    # Derived in __post_init__; used by Scene._resolve() and by Piece.__repr__
     local_pos: Vector = field(init=False)
     local_rot: Matrix = field(init=False)
 
@@ -60,7 +63,35 @@ class Group:
         )
         self.local_rot = orientation_to_rotation(orientation)
 
+    # ------------------------------------------------------------------
+    # Duck-type surface for Piece.__repr__ and Piece.attach()
+    # ------------------------------------------------------------------
+
+    @property
+    def position(self) -> Vector:
+        """Exposes local_pos as .position so Piece.__repr__ can apply our transform."""
+        return self.local_pos
+
+    @property
+    def rotation(self) -> Matrix:
+        """Exposes local_rot as .rotation so Piece.__repr__ can apply our transform."""
+        return self.local_rot
+
+    # ------------------------------------------------------------------
+    # Tree mutation
+    # ------------------------------------------------------------------
+
     def add(self, item: Piece | Group) -> Group:
-        """Add a Piece or sub-Group. Returns self for fluent chaining."""
+        """Add a Piece or sub-Group. Returns self for fluent chaining.
+
+        For Piece items, sets item.group = self so that piece.attach() will
+        automatically register the newly attached piece in this Group.
+        """
         self.children.append(item)
+        if isinstance(item, Piece):
+            item.group = self  # type: ignore[assignment]  — duck-typed
         return self
+
+    def add_piece(self, piece: Piece) -> None:
+        """Alias for add(). Called by Piece.attach() when piece.group is this Group."""
+        self.add(piece)

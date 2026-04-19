@@ -81,10 +81,21 @@ class Scene:
         self,
         piece: Piece,
         to: Piece,
-        side: Literal["back", "front", "right", "left"],
+        side: Literal["front", "back", "left", "right", "top", "bottom"],
+        orientation: Literal["north", "south", "east", "west"] | None = None,
+        right_studs: int = 0,
+        back_studs: int = 0,
     ) -> Piece:
-        """Attach piece to another piece on the given side and add it to the scene."""
-        Piece.attach_to(piece=piece, to=to, side=side)
+        """Attach piece to another piece on the given side and add it to the scene.
+
+        orientation overrides the attached piece's facing; None inherits to's.
+        right_studs / back_studs are only meaningful for side="top" or "bottom".
+        """
+        Piece.attach_to(
+            piece=piece, to=to, side=side,
+            orientation=orientation,
+            right_studs=right_studs, back_studs=back_studs,
+        )
         self.add(piece)
         return piece
 

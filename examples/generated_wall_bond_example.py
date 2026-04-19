@@ -54,7 +54,7 @@ for row in range(1, WALL_HEIGHT_BRICKS):
 
         # first Brick1X2 of this row — shifted 1 stud right from the leftmost below
         row_anchor = Piece(part=Brick1X2, colour=Red)
-        Piece.place_on_top(piece=row_anchor, of=prev_row_leftmost, offset_lr_studs=1)
+        Piece.place_on_top(piece=row_anchor, of=prev_row_leftmost, right_studs=1)
         scene.add_piece(row_anchor)
 
         prev = row_anchor
