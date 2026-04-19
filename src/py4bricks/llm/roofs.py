@@ -4,7 +4,7 @@ from typing import Literal
 
 from py4bricks import part
 from py4bricks.colour import Colour
-from py4bricks.library.colours import Red
+from py4bricks.library.colours import Red, Aqua
 from py4bricks.library.parts.slopes import SlopeBrick452X1, SlopeBrick452X1Double
 from py4bricks.library.parts.tiles import Tile1X1WithGroove
 from py4bricks.llm.box import Box
@@ -54,8 +54,8 @@ class PitchedRoof(Group):
                 }
             case "east-west":
                 self.ref_walls = {
-                    "left": box_to_cover["south_wall"],
-                    "right": box_to_cover["north_wall"],
+                    "left": box_to_cover["north_wall"],
+                    "right": box_to_cover["south_wall"],
                 }
                 self.row_length_studs = box_to_cover.box_width_studs
                 self.span_studs = box_to_cover.box_depth_studs
@@ -110,11 +110,15 @@ class PitchedRoof(Group):
 
         wall = self.ref_walls[side]
         wall_start_brick = wall.brick_at(studs_x=0, bricks_y=wall.bricks_height - 1)
+        wall_start_brick.colour = Red if side == "left" else Aqua
+
+        print(f"Wall name: {wall.name}, position: {wall.position}, rotation: {wall.rotation}")
+        print(f"Building first row of roof on {side} side, starting at wall brick at studs_x=0, bricks_y={wall.bricks_height - 1}, with position {wall_start_brick.position} and rotation {wall_start_brick.rotation}")
 
         first_piece = Piece(
             part=self.slope_part,
             rotation=self.pieces_rotation[side],
-            colour=self.colour if side == "left" else Red,
+            colour=Red if side == "left" else self.colour,
         )
 
         first_piece = Piece.place_on_top(piece=first_piece, of=wall_start_brick)

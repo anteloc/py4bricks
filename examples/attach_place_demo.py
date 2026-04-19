@@ -1,8 +1,9 @@
-from py4bricks.pieces import Piece
-from py4bricks.library.colours import Red, Green, Blue, Yellow, White
-from py4bricks.library.parts.bricks import Brick1X1
 from pathlib import Path
-from py4bricks.geometry import Identity, XAxis, YAxis, ZAxis
+
+from py4bricks.geometry import Identity, YAxis
+from py4bricks.library.colours import Blue, Green, Red, White, Yellow
+from py4bricks.library.parts.bricks import Brick1X1
+from py4bricks.pieces import Piece
 
 central_piece = Piece(part=Brick1X1, colour=White)
 central_piece.rotation = Identity().rotate(49, axis=YAxis)

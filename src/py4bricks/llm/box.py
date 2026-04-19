@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from py4bricks.colour import Colour
 from py4bricks.geometry import (
+    Identity,
+    Matrix,
     Vector,
     plates_to_brick_height,
     brick_height_to_plates
@@ -27,6 +29,7 @@ class Box:
                  box_depth_studs: int, 
                  box_height_plates: int = 0, 
                  box_height_bricks: int = 0,
+                 position: Vector = Vector(0, 0, 0),
                  colour: Colour = White,
     ) -> None:
 
@@ -44,7 +47,7 @@ class Box:
 
         self.wall_layout = WallLayout(
             walls_height_bricks=_box_height_bricks,
-            first_wall_position=Vector(0, 0, 0),
+            first_wall_position=position,
             colour=colour,
         )
 
