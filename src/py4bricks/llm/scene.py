@@ -115,13 +115,22 @@ class Scene:
         item: Piece | Group,
         ref: Piece | Group,
         *,
+        right_studs: int = 0,
+        back_studs: int = 0,
         facing: Literal["north", "south", "east", "west"] = "north",
     ) -> Piece | Group:
-        """Stack item flush on top of ref and add it to the scene."""
+        """Stack item flush on top of ref, optionally offset by studs.
+
+        right_studs — shift item to the right (positive X) by this many studs.
+        back_studs  — shift item towards the back (positive Z) by this many studs.
+        """
         ref_bounds     = self._bounds(ref, _ORIGIN, _IDENTITY)
         structural_top = ref_bounds.max_y - LDU_PER_STUD_HEIGHT
-        # Inherit ref's X,Z so item sits directly above it.
-        item.position = Vector(ref.position.x, structural_top, ref.position.z)
+        item.position  = Vector(
+            ref.position.x + studs_to_ldu(right_studs),
+            structural_top,
+            ref.position.z + studs_to_ldu(back_studs),
+        )
         self._set_facing(item, facing)
         self._register(item)
         return item
