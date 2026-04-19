@@ -213,3 +213,5 @@ __marimo__/
 claude-*.md
 examples/*.mpd
 examples/*.ldr
+test/*.mpd
+test/*.ldr

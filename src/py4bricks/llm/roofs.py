@@ -132,7 +132,7 @@ class PitchedRoof(Group):
         prev = first_piece
         for _ in range(1, self.row_length_in_pieces):
             p = prev.copy()
-            Piece.attach(piece=p, to=prev, side=attach_side)
+            Piece.attach_to(piece=p, to=prev, side=attach_side)
             prev = p
             pieces.append(p)
             self.add_piece(p)

@@ -21,11 +21,11 @@ import math
 from fractions import Fraction
 from functools import reduce
 from numbers import Number
-from typing import overload
+from typing import overload, Literal
 
 LDU_PER_STUD = 20     # 1 stud = 20 LDU horizontally
 LDU_PER_PLATE = 8     # 1 plate = 8 LDU vertically
-LDU_PER_BRICK_HEIGHT = 24 # 1 brick row = 3 plates = 24 LDU
+LDU_PER_BRICK_HEIGHT = 24 # 1 brick height = 3 plates height = 24 LDU
 PLATES_PER_BRICK_HEIGHT = 3  # used to convert brick rows ↔ plates
 LDU_PER_STUD_HEIGHT = 4 # 1 stud height = 4 LDU vertically
 
@@ -77,6 +77,18 @@ def proportional(whole: int, proportion: tuple[int, int]) -> int:
     num, denom = proportion
     
     return (whole * num) // denom
+
+def orientation_to_rotation(orientation: Literal["north", "south", "east", "west"]) -> Matrix:
+    if orientation == "north":
+        return Identity()
+    elif orientation == "east":
+        return Identity().rotate(90, axis=YAxis)
+    elif orientation == "south":
+        return Identity().rotate(180, axis=YAxis)
+    elif orientation == "west":
+        return Identity().rotate(270, axis=YAxis)
+    else:
+        raise ValueError(f"Invalid orientation: {orientation}")
 
 class MatrixError(Exception):
     """Exception raised for matrix operation errors."""

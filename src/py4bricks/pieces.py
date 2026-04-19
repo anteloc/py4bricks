@@ -4,6 +4,7 @@
 - Group: represents a group of pieces, with a defined position and rotation that applies to all contained pieces.
 """
 from __future__ import annotations
+from re import I
 
 # pylint: disable=too-many-arguments, too-few-public-methods
 from functools import reduce
@@ -17,7 +18,7 @@ from py4bricks.geometry import (
     Identity,
     Matrix,
     Vector,
-    ldu_to_studs,
+    ldu_to_studs, YAxis, orientation_to_rotation, studs_to_ldu, plates_to_ldu,
 )
 from py4bricks.library import get_dimensions
 
@@ -26,7 +27,7 @@ class Piece:
     """A Piece is a Part with a defined colour, position, and rotation."""
 
     @classmethod
-    def attach(cls, 
+    def attach_to(cls, 
                piece: Piece, 
                to: Piece, 
                side: Literal["front", "back", "left", "right"]) -> Piece:
@@ -62,10 +63,32 @@ class Piece:
         If offsets are given, piece will be placed with the given offset in studs to the left/right and back/front directions,
         where left and front are negative directions, and right and back are positive directions
         ."""
-        offset = Vector(offset_lr_studs * LDU_PER_STUD, of.ldu_y - LDU_PER_STUD_HEIGHT, offset_bf_studs * LDU_PER_STUD)
+        of_body_half    = (of.ldu_y    - LDU_PER_STUD_HEIGHT) / 2
+        piece_body_half = (piece.ldu_y - LDU_PER_STUD_HEIGHT) / 2
+        offset = Vector(
+            x=offset_lr_studs * LDU_PER_STUD,
+            y=of_body_half + piece_body_half,
+            z=offset_bf_studs * LDU_PER_STUD,
+        )
         piece.position = of.position + of.rotation * offset
         piece.rotation = of.rotation
 
+        return piece
+
+    @classmethod
+    def place_at(cls, 
+                piece: Piece, 
+                studs_x: int, 
+                plates_y: int, 
+                studs_z: int, 
+                orientation: Literal["north", "south", "east", "west"] = "north"
+    ) -> Piece:
+        """Place piece at the given studs coordinates with the given rotation."""
+        piece.rotation = orientation_to_rotation(orientation)
+        x = studs_to_ldu(studs_x)
+        y = plates_to_ldu(plates_y)
+        z = studs_to_ldu(studs_z)
+        piece.position = Vector(x, y, z)
         return piece
 
     def __init__(self,
@@ -88,10 +111,13 @@ class Piece:
         self.plates_y = self.dimensions.get("plates_y", 0)
         self.studs_z = self.dimensions.get("studs_z", 0)
 
+        # Offset from centroid-under-leftmost-stud origin to LDraw origin.
+        # X/Z: leftmost-stud centroid → piece geometric center.
+        # Y: body centroid → top face (includes stud protrusion).
         self.offset = Vector(
-            x=self.ldu_x / 2,
-            y=self.ldu_y,
-            z=self.ldu_z / 2,
+            x=self.ldu_x / 2 - LDU_PER_STUD / 2,
+            y=self.ldu_y / 2 + LDU_PER_STUD_HEIGHT / 2,
+            z=self.ldu_z / 2 - LDU_PER_STUD / 2,
         )
 
         self.group = group
@@ -119,6 +145,15 @@ class Piece:
             + ("%s.dat" % self.part)
         )
 
+    def attach(self, piece: Piece, side: Literal["front", "back", "left", "right"]) -> Piece:
+        """Attach the given piece to this one, aligning the attached piece to the given side."""
+        attached = Piece.attach_to(piece=piece, to=self, side=side)
+
+        if self.group:
+            self.group.add_piece(attached)
+
+        return attached
+
     def displace_by(self, displacement: Vector) -> None:
         """Translate this piece by displacement in its local (group-relative) frame."""
         self.position = self.position + displacement
@@ -143,11 +178,11 @@ class Group:
 
     def __init__(
         self,
-        position: Vector | None = None,
-        rotation: Matrix | None = None,
+        position: Vector = Vector(0, 0, 0),
+        rotation: Matrix = Identity(),
     ) -> None:
-        self.position = position if position is not None else Vector(0, 0, 0)
-        self.rotation = rotation if rotation is not None else Identity()
+        self.position = position
+        self.rotation = rotation
         self.pieces: list[Piece] = []
         # Bounding box in group-local space, same attribute shape as Piece
         self.ldu_x: float = 0

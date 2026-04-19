@@ -13,9 +13,9 @@ back_piece = Piece(part=Brick1X1, colour=Green)
 right_piece = Piece(part=Brick1X1, colour=Blue)
 top_piece = Piece(part=Brick1X1, colour=Yellow)
 
-Piece.attach(front_piece, to=central_piece, side="front")
-Piece.attach(back_piece, to=central_piece, side="back")
-Piece.attach(right_piece, to=central_piece, side="right")
+Piece.attach_to(front_piece, to=central_piece, side="front")
+Piece.attach_to(back_piece, to=central_piece, side="back")
+Piece.attach_to(right_piece, to=central_piece, side="right")
 # Piece.attach(left_piece, to=central_piece, side="left")
 Piece.place_on_top(piece=top_piece, of=central_piece)
 reprs = [repr(central_piece), repr(front_piece), repr(back_piece), repr(right_piece), repr(top_piece)]
