@@ -124,6 +124,21 @@ class Piece:
         if group:
             group.add_piece(self)
 
+    def render(self, position: Vector, rotation: Matrix) -> str:
+        """Generate an LDraw type-1 line from pre-resolved world-space transforms.
+
+        Called by Scene._resolve(), which composes the full transform chain before
+        invoking this — keeping all matrix arithmetic out of LLM-generated scripts.
+        """
+        tup = tuple(reduce(lambda row1, row2: row1 + row2, rotation.rows))
+        origin = position + rotation * self.offset
+        return (
+            ("1 %i " % self.colour.code)
+            + ("%g " * 3) % (origin.x, -origin.y, origin.z)
+            + ("%g " * 9) % tup
+            + ("%s.dat" % self.part)
+        )
+
     def __repr__(self) -> str:
         if self.group:
             position = self.group.position + self.group.rotation * self.position
@@ -131,19 +146,7 @@ class Piece:
         else:
             position = self.position
             rotation = self.rotation
-        tup = tuple(reduce(lambda row1, row2: row1 + row2, rotation.rows))
-
-        # In LDraw, pieces have their origin at the center of the top face,
-        # but we are working with the piece's origin at the left-front-bottom-corner,
-        # so we need to apply an offset to get the correct position in LDraw coordinates.
-        origin = position + rotation * self.offset
-
-        return (
-            ("1 %i " % self.colour.code)
-            + ("%g " * 3) % (origin.x, -origin.y, origin.z)
-            + ("%g " * 9) % tup
-            + ("%s.dat" % self.part)
-        )
+        return self.render(position, rotation)
 
     def attach(self, piece: Piece, side: Literal["front", "back", "left", "right"]) -> Piece:
         """Attach the given piece to this one, aligning the attached piece to the given side."""
