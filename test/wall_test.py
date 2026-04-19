@@ -40,9 +40,9 @@ scene = Scene()
 
 rows = [make_row(WALL_WIDTH) for _ in range(WALL_HEIGHT)]
 
-scene.add(rows[0], facing="north")
+scene.place(rows[0], facing="north")
 for i in range(1, WALL_HEIGHT):
-    scene.add(rows[i], facing="north", on_top_of=rows[i - 1])
+    scene.place_on_top_of(rows[i], rows[i - 1], facing="north")
 
 # bottom-left anchor sits at the origin
 assert scene.piece_at(studs_x=0, plates_y=0, studs_z=0) is not None

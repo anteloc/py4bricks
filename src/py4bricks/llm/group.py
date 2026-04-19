@@ -69,12 +69,17 @@ class Group:
 
     @property
     def position(self) -> Vector:
-        """Exposes local_pos as .position so Piece.__repr__ can apply our transform."""
+        """Local position; duck-types Piece.position for uniform Scene treatment."""
         return self.local_pos
+
+    @position.setter
+    def position(self, value: Vector) -> None:
+        """Set local position (used by Scene placement helpers)."""
+        self.local_pos = value
 
     @property
     def rotation(self) -> Matrix:
-        """Exposes local_rot as .rotation so Piece.__repr__ can apply our transform."""
+        """Local rotation; duck-types Piece.rotation so Piece.__repr__ works."""
         return self.local_rot
 
     # ------------------------------------------------------------------

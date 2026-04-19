@@ -12,6 +12,7 @@ Coordinate conventions (same as geometry.py):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from itertools import product
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -32,6 +33,9 @@ if TYPE_CHECKING:
 
 # Tolerance for piece_at() position matching (half an LDU — smaller than any grid step)
 _POSITION_TOLERANCE: float = 0.5
+
+_ORIGIN:   Vector = Vector(0, 0, 0)
+_IDENTITY: Matrix = Identity()
 
 
 @dataclass
@@ -57,9 +61,6 @@ class _Bounds:
 class Scene:
     """Root container for all Pieces and Groups in a model.
 
-    All placement operations (place_at, attach_to) add their piece to the scene
-    automatically — no manual add_piece() call required after placement.
-
     Rendering resolves the full Group transform chain lazily: structures can be
     repositioned or rotated after construction, and the output is always correct.
     """
@@ -67,156 +68,124 @@ class Scene:
     def __init__(self) -> None:
         self.children: list[Piece | Group] = []
 
-        # Expose position/rotation so Piece.__repr__ keeps working for pieces
-        # whose .group is set to this scene (backward-compat duck-typing).
+        # Duck-typed position/rotation so Piece.__repr__ works when piece.group = scene.
         self.position: Vector = Vector(0, 0, 0)
         self.rotation: Matrix = Identity()
 
     # ------------------------------------------------------------------
-    # Tree mutation
+    # Public placement API
     # ------------------------------------------------------------------
 
-    def add(
+    def place(
         self,
         item: Piece | Group,
         *,
-        facing: Literal["north", "south", "east", "west"] | None = None,
-        adjacent_to: Piece | Group | None = None,
-        side: Literal["east", "west", "north", "south"] | None = None,
-        on_top_of: Piece | Group | None = None,
-    ) -> None:
-        """Add a Piece or Group to the scene, optionally repositioning it.
+        facing: Literal["north", "south", "east", "west"] = "north",
+    ) -> Piece | Group:
+        """Add item to the scene with the given orientation.
 
-        facing       — set the item's orientation before adding.
-        adjacent_to  — place item flush against the given reference on the
-                       given compass side (requires side=).
-        on_top_of    — place item flush on top of the given reference.
-
-        Relational kwargs only set the relevant axis; the LLM controls the
-        remaining axes via the item's own studs_x / plates_y / studs_z.
-        facing= may be combined with adjacent_to= or on_top_of=.
+        Use when item's pieces are already positioned within it (e.g. a Group row).
         """
-        if facing is not None:
-            rot = orientation_to_rotation(facing)
-            if isinstance(item, Group):
-                item.local_rot = rot
-            else:
-                item.rotation = rot
-
-        if adjacent_to is not None:
-            if side is None:
-                raise ValueError("adjacent_to= requires side=")
-            self._place_adjacent(item, ref=adjacent_to, side=side)
-
-        if on_top_of is not None:
-            ref_bounds = self._bounds(on_top_of)
-            ref_pos    = self._get_pos(on_top_of)
-            # Structural top = body height only; studs slot into the row above,
-            # they don't add to the stacking height.
-            structural_top = ref_bounds.max_y - LDU_PER_STUD_HEIGHT
-            # Copy ref's X,Z origin so the item sits directly above ref,
-            # not at whatever default position it was created with.
-            self._set_pos(item, x=ref_pos.x, y=structural_top, z=ref_pos.z)
-
-        self.children.append(item)
-        if isinstance(item, Piece):
-            item.group = self  # type: ignore[assignment]  — duck-typed for backward compat
-
-    def add_piece(self, piece: Piece) -> None:
-        """Add a Piece to the scene. Kept for backward compatibility."""
-        self.add(piece)
-
-    # ------------------------------------------------------------------
-    # Placement helpers (absolute and relative)
-    # ------------------------------------------------------------------
+        self._set_facing(item, facing)
+        self._register(item)
+        return item
 
     def place_at(
         self,
         piece: Piece,
+        *,
         studs_x: int,
         plates_y: int,
         studs_z: int,
-        orientation: Literal["north", "south", "east", "west"] = "north",
+        facing: Literal["north", "south", "east", "west"] = "north",
     ) -> Piece:
-        """Place piece at the given grid coordinates and add it to the scene."""
+        """Place a single Piece at absolute grid coordinates and add it to the scene."""
         Piece.place_at(
             piece=piece,
             studs_x=studs_x,
             plates_y=plates_y,
             studs_z=studs_z,
-            orientation=orientation,
+            orientation=facing,
         )
-        self.add(piece)
+        self._register(piece)
         return piece
 
-    def attach_to(
+    def place_on_top_of(
         self,
-        piece: Piece,
-        to: Piece,
-        side: Literal["front", "back", "left", "right", "top", "bottom"],
-        orientation: Literal["north", "south", "east", "west"] | None = None,
-        right_studs: int = 0,
-        back_studs: int = 0,
-    ) -> Piece:
-        """Attach piece to another piece on the given side and add it to the scene.
+        item: Piece | Group,
+        ref: Piece | Group,
+        *,
+        facing: Literal["north", "south", "east", "west"] = "north",
+    ) -> Piece | Group:
+        """Stack item flush on top of ref and add it to the scene."""
+        ref_bounds     = self._bounds(ref, _ORIGIN, _IDENTITY)
+        structural_top = ref_bounds.max_y - LDU_PER_STUD_HEIGHT
+        # Inherit ref's X,Z so item sits directly above it.
+        item.position = Vector(ref.position.x, structural_top, ref.position.z)
+        self._set_facing(item, facing)
+        self._register(item)
+        return item
 
-        orientation overrides the attached piece's facing; None inherits to's.
-        right_studs / back_studs are only meaningful for side="top" or "bottom".
-        """
-        Piece.attach_to(
-            piece=piece, to=to, side=side,
-            orientation=orientation,
-            right_studs=right_studs, back_studs=back_studs,
+    def place_adjacent_to(
+        self,
+        item: Piece | Group,
+        ref: Piece | Group,
+        *,
+        side: Literal["east", "west", "north", "south"],
+        facing: Literal["north", "south", "east", "west"] = "north",
+    ) -> Piece | Group:
+        """Place item flush against ref on the given compass side."""
+        self._place_adjacent(item, ref=ref, side=side)
+        self._set_facing(item, facing)
+        self._register(item)
+        return item
+
+    def piece_at(self, studs_x: int, plates_y: int, studs_z: int) -> Piece | None:
+        """Return the first Piece whose world-space origin matches the given grid position."""
+        target = Vector(
+            studs_to_ldu(studs_x), plates_to_ldu(plates_y), studs_to_ldu(studs_z),
         )
-        self.add(piece)
-        return piece
 
-    def piece_at(
-        self,
-        studs_x: int,
-        plates_y: int,
-        studs_z: int,
-    ) -> Piece | None:
-        """Return the first Piece whose world-space origin matches the given grid position.
+        def _near(v: Vector) -> bool:
+            return (abs(v.x - target.x) < _POSITION_TOLERANCE
+                    and abs(v.y - target.y) < _POSITION_TOLERANCE
+                    and abs(v.z - target.z) < _POSITION_TOLERANCE)
 
-        Traverses the full tree lazily. Returns None if no match is found.
-        """
-        target = Vector(studs_to_ldu(studs_x), plates_to_ldu(plates_y), studs_to_ldu(studs_z))
-        origin, identity = Vector(0, 0, 0), Identity()
-        for item in self.children:
-            for piece, world_pos, _ in self._traverse(item, origin, identity):
-                if (abs(world_pos.x - target.x) < _POSITION_TOLERANCE
-                        and abs(world_pos.y - target.y) < _POSITION_TOLERANCE
-                        and abs(world_pos.z - target.z) < _POSITION_TOLERANCE):
-                    return piece
-        return None
+        return next(
+            (
+                piece
+                for item in self.children
+                for piece, world_pos, _ in self._traverse(item, _ORIGIN, _IDENTITY)
+                if _near(world_pos)
+            ),
+            None,
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _get_pos(item: Piece | Group) -> Vector:
-        return item.local_pos if isinstance(item, Group) else item.position
+    def _register(self, item: Piece | Group) -> None:
+        """Append item to the scene tree; duck-type Piece.group for __repr__ compat."""
+        self.children.append(item)
+        if isinstance(item, Piece):
+            item.group = self  # type: ignore[assignment]
+
+    def add_piece(self, piece: Piece) -> None:
+        """Register piece; called by Piece.attach() when piece.group is this Scene."""
+        self._register(piece)
 
     @staticmethod
-    def _set_pos(
+    def _set_facing(
         item: Piece | Group,
-        x: float | None = None,
-        y: float | None = None,
-        z: float | None = None,
+        facing: Literal["north", "south", "east", "west"],
     ) -> None:
-        """Replace one or more axes of item's position, leaving the rest unchanged."""
-        pos = item.local_pos if isinstance(item, Group) else item.position
-        new_pos = Vector(
-            x if x is not None else pos.x,
-            y if y is not None else pos.y,
-            z if z is not None else pos.z,
-        )
+        """Apply orientation to item's rotation field."""
+        rot = orientation_to_rotation(facing)
         if isinstance(item, Group):
-            item.local_pos = new_pos
+            item.local_rot = rot
         else:
-            item.position = new_pos
+            item.rotation = rot
 
     def _place_adjacent(
         self,
@@ -225,20 +194,23 @@ class Scene:
         side: Literal["east", "west", "north", "south"],
     ) -> None:
         """Reposition item so it sits flush against ref on the given compass side."""
-        origin, identity = Vector(0, 0, 0), Identity()
+        origin, identity = _ORIGIN, _IDENTITY
         ref_bounds = self._bounds(ref, origin, identity)
 
+        pos = item.position
         match side:
             case "east":
-                self._set_pos(item, x=ref_bounds.max_x)
+                item.position = Vector(ref_bounds.max_x, pos.y, pos.z)
             case "west":
                 item_bounds = self._bounds(item, origin, identity)
-                self._set_pos(item, x=ref_bounds.min_x - (item_bounds.max_x - item_bounds.min_x))
+                west_x = ref_bounds.min_x - (item_bounds.max_x - item_bounds.min_x)
+                item.position = Vector(west_x, pos.y, pos.z)
             case "north":
-                self._set_pos(item, z=ref_bounds.max_z)
+                item.position = Vector(pos.x, pos.y, ref_bounds.max_z)
             case "south":
                 item_bounds = self._bounds(item, origin, identity)
-                self._set_pos(item, z=ref_bounds.min_z - (item_bounds.max_z - item_bounds.min_z))
+                south_z = ref_bounds.min_z - (item_bounds.max_z - item_bounds.min_z)
+                item.position = Vector(pos.x, pos.y, south_z)
 
     def _traverse(
         self,
@@ -263,19 +235,12 @@ class Scene:
             )
 
     def _bounds(
-        self,
-        item: Piece | Group,
-        parent_pos: Vector | None = None,
-        parent_rot: Matrix | None = None,
+        self, item: Piece | Group, parent_pos: Vector, parent_rot: Matrix,
     ) -> _Bounds:
         """Compute the world-space axis-aligned bounding box of item and all descendants."""
         bounds = _Bounds()
-        for piece, world_pos, world_rot in self._traverse(
-            item,
-            parent_pos or Vector(0, 0, 0),
-            parent_rot or Identity(),
-        ):
-            for xi, yi, zi in [(x, y, z) for x in (0, 1) for y in (0, 1) for z in (0, 1)]:
+        for piece, world_pos, world_rot in self._traverse(item, parent_pos, parent_rot):
+            for xi, yi, zi in product((0, 1), repeat=3):
                 bounds.expand(world_pos + world_rot * Vector(
                     xi * piece.ldu_x,
                     yi * piece.ldu_y,
@@ -287,23 +252,14 @@ class Scene:
     # Render pipeline
     # ------------------------------------------------------------------
 
-    def _resolve(
-        self,
-        item: Piece | Group,
-        parent_pos: Vector,
-        parent_rot: Matrix,
-    ) -> Iterator[str]:
-        """Yield LDraw type-1 lines for item and all its descendants."""
-        for piece, world_pos, world_rot in self._traverse(item, parent_pos, parent_rot):
-            yield piece.render(world_pos, world_rot)
-
     def render_str(self) -> str:
         """Render the scene to an LDraw string."""
-        origin, identity = Vector(0, 0, 0), Identity()
-        lines: list[str] = []
-        for item in self.children:
-            lines.extend(self._resolve(item, origin, identity))
-        return "\n".join(lines)
+        origin, identity = _ORIGIN, _IDENTITY
+        return "\n".join(
+            piece.render(world_pos, world_rot)
+            for item in self.children
+            for piece, world_pos, world_rot in self._traverse(item, origin, identity)
+        )
 
     def render_file(self, file_path: Path | str) -> None:
         """Render the scene to an LDraw .mpd file."""

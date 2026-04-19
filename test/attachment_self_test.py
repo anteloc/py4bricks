@@ -32,12 +32,12 @@ scene = Scene()
 
 # these two marker and center are implicitly added to the scene
 origin_marker = Piece(part=Spike2_4LWith4FinsWithBar0_4L, colour=Medium_Azure)
-scene.place_at(piece=origin_marker, studs_x=0, plates_y=0, studs_z=0, orientation="north")
+scene.place_at(piece=origin_marker, studs_x=0, plates_y=0, studs_z=0, facing="north")
 
 # attach several pieces to the center piece, in all four directions
 # pieces attached to others already present in the scene will be added to the scene automatically, so we don't need to explicitly add them
 center = Piece(part=Brick1X2, colour=Center_White)
-scene.place_at(piece=center, studs_x=0, plates_y=0, studs_z=0, orientation="north")
+scene.place_at(piece=center, studs_x=0, plates_y=0, studs_z=0, facing="north")
 
 back_piece = Piece(part=Brick1X2, colour=Back_Blue)
 center.attach(piece=back_piece, side="back")
