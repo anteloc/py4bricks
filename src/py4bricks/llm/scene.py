@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Literal
 
 from py4bricks.geometry import (
     Identity,
+    LDU_PER_STUD_HEIGHT,
     Matrix,
     Vector,
     orientation_to_rotation,
@@ -109,7 +110,13 @@ class Scene:
 
         if on_top_of is not None:
             ref_bounds = self._bounds(on_top_of)
-            self._set_pos(item, y=ref_bounds.max_y)
+            ref_pos    = self._get_pos(on_top_of)
+            # Structural top = body height only; studs slot into the row above,
+            # they don't add to the stacking height.
+            structural_top = ref_bounds.max_y - LDU_PER_STUD_HEIGHT
+            # Copy ref's X,Z origin so the item sits directly above ref,
+            # not at whatever default position it was created with.
+            self._set_pos(item, x=ref_pos.x, y=structural_top, z=ref_pos.z)
 
         self.children.append(item)
         if isinstance(item, Piece):
