@@ -2,7 +2,7 @@
 Tests for orienting and placing Brick1X2 pieces together:
 
 - In all four orientations
-- The origin stud is to the left of the piece
+- The origin stud is located at the left of the piece
 - This makes the piece asymmetrical relative to its origin stud
 - Which affects placement.
 
