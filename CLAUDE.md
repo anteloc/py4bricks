@@ -45,7 +45,7 @@ b) **Test it** by generating and running scripts to evaluate their quality and t
          - `NameLXWDescription`: does not include height
    - Alternatively, for accurate dimensions for a certain part, run e.g.
    ```shell
-   grep -A 1 'Window1X4X3WithoutShutterTabs' src/py4bricks/library/dimensions.py
+   grep -A 1 '# Window1X4X3WithoutShutterTabs$' src/py4bricks/library/dimensions.py
    ```
 
 ## Development Commands
@@ -116,6 +116,7 @@ uv pip install -e . # make py4bricks available for importing while also editing
 ## Python Practices (MANDATORY)
 - **DO's:**
    - What follows should be tailored for you to help you follow the code and make changes
+   - Do TDD if **asked to implement something and also to create tests** for it: first write the tests, then implement the requested feature.
    - Add comments and docstrings suitable for RAG for functions, constants, etc.
    - Prefer @dataclasses where applicable
    - Always use f-string over string formatting or concatentation (except in logging strings)
