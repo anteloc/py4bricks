@@ -72,6 +72,35 @@ uv pip install -e . # make py4bricks available for importing while also editing
    - These modules will be delegating the heavy work to the Non-LLM friendly API.
    - Coordinates will be expressed by Vectors, on a conventional coordinates system where Y axis is **positive** for "up".
    - As much as possible, **use as units studs (X and Z axis) and plates (Y axis)**, then to be **translated to LDUs when delegating** to the Non-LLM friendly API.
+   - Make functions and methods signatures LLM-friendly by designing them in such a way that:
+      - Functions signatures **look much like templates for an LLM to fill**
+         - Something like: 
+            ```python
+            def some_function(piece: Piece, 
+                              on_top_of: Piece, 
+                              orientation: Literal["north", "south", "east", "west"]
+            ) -> Piece
+            ```
+         - Instead of:
+            ```python
+            def some_function(p1: Piece, 
+                              p2: Piece, 
+                              o: Literal["north", "south", "east", "west"]
+            ) -> Piece
+            ```
+      - Generated functions calls will be the **result of an LLM filling those templates**. 
+         - Something like:
+            ```python
+               some_function(piece=some_piece, 
+                              on_top_of=base_piece, 
+                              orientation="north")
+            ```
+         - Instead of:
+            ```python
+               some_function(some_piece, 
+                              base_piece, 
+                              "north")
+            ```
 
 ### Key Classes
 

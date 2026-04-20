@@ -92,21 +92,29 @@ class Scene:
 
     def place_at(
         self,
-        piece: Piece,
+        piece: Piece | Group,
         *,
         studs_x: int,
         plates_y: int,
         studs_z: int,
         facing: Literal["north", "south", "east", "west"] = "north",
-    ) -> Piece:
-        """Place a single Piece at absolute grid coordinates and add it to the scene."""
-        Piece.place_at(
-            piece=piece,
-            studs_x=studs_x,
-            plates_y=plates_y,
-            studs_z=studs_z,
-            orientation=facing,
-        )
+    ) -> Piece | Group:
+        """Place a Piece or Group at absolute grid coordinates and add it to the scene."""  # noqa: E501
+        if isinstance(piece, Piece):
+            Piece.place_at(
+                piece=piece,
+                studs_x=studs_x,
+                plates_y=plates_y,
+                studs_z=studs_z,
+                orientation=facing,
+            )
+        else:
+            piece.position = Vector(
+                studs_to_ldu(studs_x),
+                plates_to_ldu(plates_y),
+                studs_to_ldu(studs_z),
+            )
+            self._set_facing(piece, facing)
         self._register(piece)
         return piece
 

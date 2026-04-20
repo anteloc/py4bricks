@@ -7,5 +7,6 @@ Typical imports for generated scripts:
 """
 from py4bricks.llm.group import Group
 from py4bricks.llm.scene import Scene
+from py4bricks.llm.wall import Wall
 
-__all__ = ["Group", "Scene"]
+__all__ = ["Group", "Scene", "Wall"]
