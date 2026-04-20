@@ -28,6 +28,13 @@ from py4bricks.llm.slab import Slab
 
 scene = Scene()
 
+
+
+# Floor slab — ground level, 1 plate thick
+floor = Slab(width_studs=20, length_studs=15, colour=Tan)
+scene.place_at(floor, studs_x=0, plates_y=0, studs_z=0)
+
+# A box with the same footprint as the floor, 8 bricks high, bonded for strength.
 box = Box(
     width_studs=20,
     length_studs=15,
@@ -35,13 +42,11 @@ box = Box(
     colour=Light_Grey,
     bonded=True,
 )
+
+# Box on top of the floor slab, account for the 1-plate thickness of the slab by placing the box at plates_y=1
 scene.place_at(box, studs_x=0, plates_y=1, studs_z=0)
 
-# Floor slab — ground level, 1 plate thick
-floor = Slab(width_studs=20, length_studs=15, colour=Tan)
-scene.place_at(floor, studs_x=0, plates_y=0, studs_z=0)
-
-# Ceiling slab — top of the 8-brick walls, 3 plates thick for solidity
+# Ceiling slab — top of the 8-brick walls, 3 plates thick for solidity, also account for the 1-plate thickness of the floor slab by placing the ceiling at plates_y=25
 ceiling = Slab(width_studs=20, length_studs=15, colour=Dark_Tan, height_plates=3)
 scene.place_at(ceiling, studs_x=0, plates_y=25, studs_z=0)
 
