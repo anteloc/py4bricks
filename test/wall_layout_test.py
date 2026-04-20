@@ -11,11 +11,11 @@ Layout (top view, Y up):
          x=0                             x=20
 
 Walls:
-    "south"  east  20 studs  →  built 20  (first wall, no corner reduction)
-    "east"   north 15 studs  →  built 14  (shares corner with south)
-    "north"  west  20 studs  →  built 19  (shares corner with east)
-    "west"   south 10 studs  →  built  9  (shares corner with north)
-    "step"   east  12 studs  →  built 11  (shares corner with west)
+    "south"  east  20 studs  →  length 21  (first wall, shares corner with east)
+    "east"   north 15 studs  →  length 16  (shares corner with south)
+    "north"  west  20 studs  →  length 21  (shares corner with east)
+    "west"   south 10 studs  →  length 11  (shares corner with north)
+    "step"   east  12 studs  →  length 12  (contributes corner to west, but no other shares corner with it)
 
 Inserts / openings:
     south : Door1X4X6Frame        at studs_x=8,  brick_row=0
