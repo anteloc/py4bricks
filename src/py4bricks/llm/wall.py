@@ -43,6 +43,10 @@ class Wall(Group):
     traverses the Wall (at render or query time).
 
     grid[stud_x][plate_y]: True = solid brick, False = open space.
+
+    When bonded=True, odd brick rows are shifted 1 stud right (running bond):
+    a Brick1X1 filler is placed at stud 0, then Brick1X2 pairs follow from
+    stud 1, so vertical joints never align between adjacent rows.
     """
 
     def __init__(
@@ -52,6 +56,7 @@ class Wall(Group):
         height_bricks: int,
         colour: Colour,
         facing: Literal["north", "south", "east", "west"] = "north",
+        bonded: bool = False,
     ) -> None:
         # Initialise Group at the local origin with the given default facing.
         # The dataclass __init__ will call children.setter with [] via __post_init__.
@@ -60,6 +65,7 @@ class Wall(Group):
         self._width_studs   = width_studs
         self._height_bricks = height_bricks
         self._colour        = colour
+        self._bonded        = bonded
         self._height_plates = height_bricks * PLATES_PER_BRICK_HEIGHT
 
         # grid[stud_x][plate_y]: True = solid, False = open
@@ -155,14 +161,21 @@ class Wall(Group):
         self._children.clear()
 
         for brick_row in range(self._height_bricks):
-            plate_y = brick_row * PLATES_PER_BRICK_HEIGHT
+            plate_y     = brick_row * PLATES_PER_BRICK_HEIGHT
+            # bond_offset drives the phase: Brick1X2 may only start at studs
+            # where x % 2 == bond_offset.  This keeps joints offset from even
+            # rows everywhere — including to the right of openings, where a
+            # naive greedy scan would otherwise reset the phase.
+            bond_offset = 1 if (self._bonded and brick_row % 2 == 1) else 0
+
             x = 0
             while x < self._width_studs:
                 if not self._grid[x][plate_y]:
                     x += 1
                     continue
                 use_1x2 = (
-                    x + 1 < self._width_studs
+                    x % 2 == bond_offset
+                    and x + 1 < self._width_studs
                     and self._grid[x + 1][plate_y]
                 )
                 part  = Brick1X2 if use_1x2 else Brick1X1
