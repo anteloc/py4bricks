@@ -147,12 +147,13 @@ class Piece:
         self.plates_y = self.dimensions.get("plates_y", 0)
         self.studs_z = self.dimensions.get("studs_z", 0)
 
-        # Offset from centroid-under-leftmost-stud origin to LDraw origin.
+        # Offset from bottom-left-front origin to LDraw origin.
         # X/Z: leftmost-stud centroid → piece geometric center.
-        # Y: body centroid → top face (includes stud protrusion).
+        # Y: bottom face → top face (LDraw origin is at the top of the part,
+        #    at the stud-base plane; equals ldu_y minus the 4-LDU stud/sill).
         self.offset = Vector(
             x=self.ldu_x / 2 - LDU_PER_STUD / 2,
-            y=self.ldu_y / 2 + LDU_PER_STUD_HEIGHT / 2,
+            y=self.ldu_y - LDU_PER_STUD_HEIGHT,
             z=self.ldu_z / 2 - LDU_PER_STUD / 2,
         )
 
