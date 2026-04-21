@@ -2,16 +2,11 @@
 Sloped bricks stacked like gables on a roof would do, ridge built by a double sided slope brick.
 Base for both sides of the roof are 2 × Brick1X2, then 2 × SlopeBrick452X1, then the SlopeBrick451X1Double as the ridge.
 
-    Even row:  [--brick--][--brick--]   studs 0-1, 2-3
-    Odd row:   [b][--brick--][b]         stud 0, studs 1-2, stud 3
+Sloped bricks have two anti-studs at the bottom, and one stud on top, being the other supressed and replaced by the slope.
+To correctly stack them as if it were gables on a roof, the slopes must be displaced by 1 stud relative to the support bricks (for the 1st gable) 
+and relative to the underlying slope (for the 2nd gable).
 
-The defining property of a bond wall: odd-row bricks are shifted 1 stud right
-so vertical joints never align between rows.
-
-Assertions verify:
-    - even row anchor sits at the origin
-    - odd row is stacked exactly 1 brick (3 plates) above
-    - odd row Brick1X2 is offset 1 stud right  ← the bond
+The current layout causes for both 2nd gables to meet at the top, and the double slope, placed on top of both, constitutes the ridge.
 """
 from turtle import right
 
