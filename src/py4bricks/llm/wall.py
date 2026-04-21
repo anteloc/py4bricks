@@ -57,10 +57,11 @@ class Wall(Group):
         colour: Colour,
         facing: Literal["north", "south", "east", "west"] = "north",
         bonded: bool = False,
+        name: str = "",
     ) -> None:
         # Initialise Group at the local origin with the given default facing.
         # The dataclass __init__ will call children.setter with [] via __post_init__.
-        super().__init__(orientation=facing)
+        super().__init__(name=name, orientation=facing)
 
         self._width_studs   = width_studs
         self._height_bricks = height_bricks

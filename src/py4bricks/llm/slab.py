@@ -50,8 +50,9 @@ class Slab(Group):
         length_studs: int,
         colour: Colour,
         height_plates: int = 1,
+        name: str = "",
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
 
         self._width_studs  = width_studs
         self._length_studs = length_studs

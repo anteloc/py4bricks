@@ -51,8 +51,11 @@ class Box(WallLayout):
         height_bricks: int,
         colour: Colour,
         bonded: bool = False,
+        name: str = "",
     ) -> None:
-        super().__init__(height_bricks=height_bricks, colour=colour, bonded=bonded)
+        super().__init__(
+            height_bricks=height_bricks, colour=colour, bonded=bonded, name=name,
+        )
 
         self.width_studs  = width_studs
         self.length_studs = length_studs

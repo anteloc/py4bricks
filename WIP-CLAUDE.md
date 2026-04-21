@@ -118,7 +118,6 @@ uv pip install -e . # make py4bricks available for importing while also editing
    - What follows should be tailored for you to help you follow the code and make changes
    - Do TDD if **asked to implement something and also to create tests** for it: first write the tests, then implement the requested feature.
    - Add comments and docstrings suitable for RAG for functions, constants, etc.
-   - Prefer @dataclasses where applicable
    - Always use f-string over string formatting or concatentation (except in logging strings)
    - Use async generators and comprehensions when they might provide benefits
    - Use underscores in large numeric literals

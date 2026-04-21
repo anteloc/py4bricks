@@ -1,4 +1,4 @@
-"""walllayout.py — LLM-friendly WallLayout: a turtle-path collection of named Walls.
+"""wall_layout.py — LLM-friendly WallLayout: a turtle-path collection of named Walls.
 
 The turtle starts at the layout origin. Each add_wall() call:
   1. Places a Wall at the current turtle corner.
@@ -78,8 +78,9 @@ class WallLayout(Group):
         height_bricks: int,
         colour: Colour,
         bonded: bool = False,
+        name: str = "",
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
         self._height_bricks      = height_bricks
         self._colour             = colour
         self._bonded             = bonded
@@ -126,6 +127,7 @@ class WallLayout(Group):
             height_bricks=self._height_bricks,
             colour=self._colour,
             bonded=self._bonded,
+            name=name,
         )
         wall.local_pos = Vector(x=studs_to_ldu(cx), y=0, z=studs_to_ldu(cz))
         wall.local_rot = orientation_to_rotation(wall_facing)
