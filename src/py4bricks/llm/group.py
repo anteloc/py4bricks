@@ -68,7 +68,7 @@ class _Bounds:
         self.max_z = max(self.max_z, pt.z)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Group:
     """A hierarchical container with a local coordinate system.
 
@@ -150,31 +150,21 @@ class Group:
     # Placement — all operate in THIS Group's local frame
     # ------------------------------------------------------------------
 
-    def place(
-        self,
-        item: Piece | Group,
-        *,
-        facing: Literal["north", "south", "east", "west"] = "north",
-    ) -> Piece | Group:
-        """Add item at this Group's local origin with the given orientation.
-
-        Use when item's pieces are already positioned within it (e.g. a Wall
-        or a pre-laid-out Group); only the orientation needs to be set here.
-        """
-        self._set_facing(item, facing)
-        self._register(item)
-        return item
-
     def place_at(
         self,
         item: Piece | Group,
         *,
-        studs_x: int,
-        plates_y: int,
-        studs_z: int,
+        studs_x: int = 0,
+        plates_y: int = 0,
+        studs_z: int = 0,
         facing: Literal["north", "south", "east", "west"] = "north",
     ) -> Piece | Group:
-        """Place item at local grid coordinates (studs_x, plates_y, studs_z)."""
+        """Place item at local grid coordinates (studs_x, plates_y, studs_z).
+
+        All coordinates default to 0, so `group.place_at(item)` drops item at
+        the Group's local origin — the "add this whole pre-built structure"
+        case. Pass any subset of coordinates to offset.
+        """
         item.position = Vector(
             studs_to_ldu(studs_x),
             plates_to_ldu(plates_y),
@@ -232,7 +222,9 @@ class Group:
     # Lookup — searches THIS Group's subtree
     # ------------------------------------------------------------------
 
-    def piece_at(self, studs_x: int, plates_y: int, studs_z: int) -> Piece | None:
+    def piece_at(
+        self, *, studs_x: int, plates_y: int, studs_z: int,
+    ) -> Piece | None:
         """Return the first Piece whose composed position matches the given local coords."""
         target = Vector(
             studs_to_ldu(studs_x), plates_to_ldu(plates_y), studs_to_ldu(studs_z),
@@ -254,14 +246,14 @@ class Group:
         )
 
     def remove_piece_at(
-        self, studs_x: int, plates_y: int, studs_z: int,
+        self, *, studs_x: int, plates_y: int, studs_z: int,
     ) -> Piece | None:
         """Remove and return the Piece at the given local coords, or None.
 
         The piece is removed from its immediate parent container — which may
         be this Group or any nested sub-Group.
         """
-        piece = self.piece_at(studs_x, plates_y, studs_z)
+        piece = self.piece_at(studs_x=studs_x, plates_y=plates_y, studs_z=studs_z)
         if piece is None:
             return None
         if piece.group is not None:
