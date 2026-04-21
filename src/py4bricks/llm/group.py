@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, InitVar
 from itertools import product
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from py4bricks.geometry import (
     Identity,
@@ -40,6 +40,8 @@ from py4bricks.pieces import Piece
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from py4bricks.llm.types import Facing, Side
 
 # Half an LDU — smaller than any grid step; used for position matching.
 _POSITION_TOLERANCE: float = 0.5
@@ -84,13 +86,22 @@ class Group:
     items in THIS Group's local frame; lookup verbs search its subtree.
 
     Scene subclasses Group as the named root whose local frame IS the world.
+
+    Prefer named proportions to magic numbers when computing coordinates:
+
+        from py4bricks.llm import proportional
+        wall.place_at(
+            door,
+            studs_x=proportional(WALL_LENGTH, (1, 2)),   # centred
+            plates_y=0, studs_z=0,
+        )
     """
 
     name:        str = ""
     studs_x:     InitVar[int] = 0
     plates_y:    InitVar[int] = 0
     studs_z:     InitVar[int] = 0
-    orientation: InitVar[Literal["north", "south", "east", "west"]] = "north"
+    orientation: InitVar[Facing] = "north"
     children:    list[Piece | Group] = field(default_factory=list)
 
     # Derived in __post_init__; used by _traverse() and by Piece.__repr__.
@@ -102,7 +113,7 @@ class Group:
         studs_x: int,
         plates_y: int,
         studs_z: int,
-        orientation: Literal["north", "south", "east", "west"],
+        orientation: Facing,
     ) -> None:
         self.local_pos = Vector(
             x=studs_to_ldu(studs_x),
@@ -142,8 +153,13 @@ class Group:
         self._register(item)
         return self
 
-    def add_piece(self, piece: Piece) -> None:
-        """Called by Piece.attach() when piece.group is this Group."""
+    def _adopt(self, piece: Piece) -> None:
+        """Duck-type hook for Piece.__init__() and Piece.attach().
+
+        Prefer `add()` or the placement verbs in LLM-facing code; this exists
+        so that `Piece(group=g)` and `piece.attach(...)` auto-register without
+        forcing callers to call add() explicitly.
+        """
         self._register(piece)
 
     # ------------------------------------------------------------------
@@ -157,7 +173,7 @@ class Group:
         studs_x: int = 0,
         plates_y: int = 0,
         studs_z: int = 0,
-        facing: Literal["north", "south", "east", "west"] = "north",
+        facing: Facing = "north",
     ) -> Piece | Group:
         """Place item at local grid coordinates (studs_x, plates_y, studs_z).
 
@@ -181,7 +197,7 @@ class Group:
         *,
         right_studs: int = 0,
         back_studs: int = 0,
-        facing: Literal["north", "south", "east", "west"] = "north",
+        facing: Facing = "north",
     ) -> Piece | Group:
         """Stack item flush on top of ref, optionally offset by studs.
 
@@ -206,8 +222,8 @@ class Group:
         item: Piece | Group,
         ref: Piece | Group,
         *,
-        side: Literal["east", "west", "north", "south"],
-        facing: Literal["north", "south", "east", "west"] = "north",
+        side: Side,
+        facing: Facing = "north",
     ) -> Piece | Group:
         """Place item flush against ref on the given compass side.
 
@@ -274,7 +290,7 @@ class Group:
     def _set_facing(
         self,
         item: Piece | Group,
-        facing: Literal["north", "south", "east", "west"],
+        facing: Facing,
     ) -> None:
         """Apply orientation to item's rotation (Piece and Group uniformly)."""
         item.rotation = orientation_to_rotation(facing)
@@ -283,7 +299,7 @@ class Group:
         self,
         item: Piece | Group,
         ref: Piece | Group,
-        side: Literal["east", "west", "north", "south"],
+        side: Side,
     ) -> None:
         """Reposition item so it sits flush against ref on the given compass side."""
         origin, identity = _ORIGIN, _IDENTITY

@@ -159,7 +159,7 @@ class Piece:
 
         self.group = group
         if group:
-            group.add_piece(self)
+            group._adopt(self)
 
     def render(self, position: Vector, rotation: Matrix) -> str:
         """Generate an LDraw type-1 line from pre-resolved world-space transforms.
@@ -204,7 +204,7 @@ class Piece:
             right_studs=right_studs, back_studs=back_studs,
         )
         if self.group:
-            self.group.add_piece(attached)
+            self.group._adopt(attached)
         return attached
 
     def displace_by(self, displacement: Vector) -> None:
@@ -275,8 +275,8 @@ class Group:
         self.plates_y = int(self.ldu_y // LDU_PER_PLATE)
         self.studs_z = ldu_to_studs(self.ldu_z)
 
-    def add_piece(self, piece: Piece) -> None:
-        """Add a piece to the group."""
+    def _adopt(self, piece: Piece) -> None:
+        """Duck-type hook for Piece.__init__() and Piece.attach()."""
         self.pieces.append(piece)
         if piece.group and piece.group != self:
             piece.group.remove_piece(piece)

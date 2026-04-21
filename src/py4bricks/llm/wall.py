@@ -16,10 +16,11 @@ Typical usage:
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from py4bricks.colour import Colour
+    from py4bricks.llm.types import Facing
 
 from py4bricks.geometry import (
     LDU_PER_BRICK_HEIGHT,
@@ -55,7 +56,7 @@ class Wall(Group):
         width_studs: int,
         height_bricks: int,
         colour: Colour,
-        facing: Literal["north", "south", "east", "west"] = "north",
+        facing: Facing = "north",
         bonded: bool = False,
         name: str = "",
     ) -> None:
