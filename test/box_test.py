@@ -25,7 +25,7 @@ from py4bricks.llm import Scene
 from py4bricks.llm.box import Box
 from py4bricks.pieces import Piece
 
-scene = Scene()
+scene = Scene("Box test")
 
 box = Box(
     width_studs=20,

@@ -28,38 +28,38 @@ from py4bricks.library.parts.bricks import Brick1X2
 from py4bricks.llm.scene import Scene
 from py4bricks.pieces import Piece
 
-scene = Scene()
+scene = Scene("Orientation test - 1×2 bricks")
 
 origin_marker = Piece(part=Spike2_4LWith4FinsWithBar0_4L, colour=Medium_Azure)
-Piece.place_at(piece=origin_marker, studs_x=0, plates_y=0, studs_z=0, orientation="north")
+scene.place_at(origin_marker, studs_x=0, plates_y=0, studs_z=0, facing="north")
 
 # placed at the center of the grid
 center = Piece(part=Brick1X2, colour=Center_White)
-Piece.place_at(piece=center, studs_x=0, plates_y=0, studs_z=0, orientation="north")
+scene.place_at(center, studs_x=0, plates_y=0, studs_z=0, facing="north")
 
 # placed at grid on (0, 0, 1), in touch with center, and rotated to face north
 north_piece = Piece(part=Brick1X2, colour=North_Blue)
-Piece.place_at(piece=north_piece, studs_x=0, plates_y=0, studs_z=1, orientation="north")
+scene.place_at(north_piece, studs_x=0, plates_y=0, studs_z=1, facing="north")
 
 # placed at grid on (0, 0, -1), in touch with center, and rotated to face south
 south_piece = Piece(part=Brick1X2, colour=South_Red)
-Piece.place_at(piece=south_piece, studs_x=0, plates_y=0, studs_z=-1, orientation="south")
+scene.place_at(south_piece, studs_x=0, plates_y=0, studs_z=-1, facing="south")
 
 # placed at grid on (2, 0, 0), in touch with center, and rotated to face east
 # NOTE: account for the fact that Brick1X2 is 2 studs long, so its origin must be placed 
 # at studs_x=2 to avoid overlapping with the center piece at studs_x=0
 east_piece = Piece(part=Brick1X2, colour=East_Yellow)
-Piece.place_at(piece=east_piece, studs_x=2, plates_y=0, studs_z=0, orientation="east")
+scene.place_at(east_piece, studs_x=2, plates_y=0, studs_z=0, facing="east")
 
 # placed at grid on (-1, 0, 0), in touch with center, and rotated to face west
 west_piece = Piece(part=Brick1X2, colour=West_Orange)
-Piece.place_at(piece=west_piece, studs_x=-1, plates_y=0, studs_z=0, orientation="west")
+scene.place_at(west_piece, studs_x=-1, plates_y=0, studs_z=0, facing="west")
 
-scene.add_piece(piece=origin_marker)
-scene.add_piece(piece=center)
-scene.add_piece(piece=north_piece)
-scene.add_piece(piece=south_piece)
-scene.add_piece(piece=east_piece)
-scene.add_piece(piece=west_piece)
+scene.add(origin_marker)
+scene.add(center)
+scene.add(north_piece)
+scene.add(south_piece)
+scene.add(east_piece)
+scene.add(west_piece)
 
 scene.render_file(Path(__file__).parent / __file__.replace(".py", ".mpd"))

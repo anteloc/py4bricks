@@ -33,7 +33,7 @@ from py4bricks.library.parts.windows import Window1X4X3WithoutShutterTabs
 from py4bricks.llm import Scene, WallLayout
 from py4bricks.pieces import Piece
 
-scene = Scene()
+scene = Scene("WallLayout test")
 
 layout = WallLayout(height_bricks=8, colour=Light_Grey, bonded=True)
 

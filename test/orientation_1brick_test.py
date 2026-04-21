@@ -23,32 +23,32 @@ from py4bricks.pieces import Piece
 
 # Other systems, such as the Toronto PATH map, use Blue (North), Red (South), Yellow (East), and Orange (West)
 
-scene = Scene()
+scene = Scene("Orientation test - 1-stud bricks")
 
 # placed at the center of the grid
 center = Piece(part=Brick1X1, colour=Center_White)
-Piece.place_at(piece=center, studs_x=0, plates_y=0, studs_z=0, orientation="north")
+scene.place_at(center, studs_x=0, plates_y=0, studs_z=0, facing="north")
 
 # placed at grid on (studs_x, plates_y, studs_z), in touch with center, and rotated to face north
 north_piece = Piece(part=Brick1X1, colour=North_Blue)
-Piece.place_at(piece=north_piece, studs_x=0, plates_y=0, studs_z=1, orientation="north")
+scene.place_at(north_piece, studs_x=0, plates_y=0, studs_z=1, facing="north")
 
 # placed at grid on (studs_x, plates_y, studs_z), in touch with center, and rotated to face south
 south_piece = Piece(part=Brick1X1, colour=South_Red)
-Piece.place_at(piece=south_piece, studs_x=0, plates_y=0, studs_z=-1, orientation="south")
+scene.place_at(south_piece, studs_x=0, plates_y=0, studs_z=-1, facing="south")
 
 # placed at grid on (studs_x, plates_y, studs_z), in touch with center, and rotated to face east
 east_piece = Piece(part=Brick1X1, colour=East_Yellow)
-Piece.place_at(piece=east_piece, studs_x=1, plates_y=0, studs_z=0, orientation="east")
+scene.place_at(east_piece, studs_x=1, plates_y=0, studs_z=0, facing="east")
 
 # placed at grid on (studs_x, plates_y, studs_z), in touch with center, and rotated to face west
 west_piece = Piece(part=Brick1X1, colour=West_Orange)
-Piece.place_at(piece=west_piece, studs_x=-1, plates_y=0, studs_z=0, orientation="west")
+scene.place_at(west_piece, studs_x=-1, plates_y=0, studs_z=0, facing="west")
 
-scene.add_piece(piece=center)
-scene.add_piece(piece=north_piece)
-scene.add_piece(piece=south_piece)
-scene.add_piece(piece=east_piece)
-scene.add_piece(piece=west_piece)
+scene.add(center)
+scene.add(north_piece)
+scene.add(south_piece)
+scene.add(east_piece)
+scene.add(west_piece)
 
 scene.render_file(Path(__file__).parent / __file__.replace(".py", ".mpd"))

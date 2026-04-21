@@ -1,5 +1,5 @@
 """
-Bond wall test — minimal 4-stud-wide, 2-row bond wall.
+Brick rows forming a bond wall test — minimal 4-stud-wide, 2-row bond wall.
 
     Even row:  [--brick--][--brick--]   studs 0-1, 2-3
     Odd row:   [b][--brick--][b]         stud 0, studs 1-2, stud 3
@@ -20,11 +20,11 @@ from py4bricks.library.parts.bricks import Brick1X1, Brick1X2
 from py4bricks.llm.scene import Scene
 from py4bricks.pieces import Piece
 
-scene = Scene()
+scene = Scene("Brick rows forming a bond wall test")
 
 # even row: 2 × Brick1X2
 even_anchor = Piece(part=Brick1X2, colour=Red)
-scene.place_at(piece=even_anchor, studs_x=0, plates_y=0, studs_z=0)
+scene.place_at(even_anchor, studs_x=0, plates_y=0, studs_z=0)
 even_anchor.attach(piece=Piece(part=Brick1X2, colour=Red), side="right")
 
 # odd row: Brick1X1 + Brick1X2 (offset 1 stud right) + Brick1X1
@@ -43,4 +43,4 @@ assert scene.piece_at(studs_x=0, plates_y=3, studs_z=0) is not None
 assert scene.piece_at(studs_x=1, plates_y=3, studs_z=0) is not None
 
 scene.render_file(Path(__file__).with_suffix(".mpd"))
-print("Bond wall test rendered to wall_bond_test.mpd")
+print("Brick rows forming a bond wall test rendered to brick_rows_bond_test.mpd")

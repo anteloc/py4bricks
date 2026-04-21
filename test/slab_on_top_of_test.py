@@ -25,7 +25,7 @@ from py4bricks.llm import Scene
 from py4bricks.llm.box import Box
 from py4bricks.llm.slab import Slab
 
-scene = Scene()
+scene = Scene("Slab on-top-of test")
 
 # 1. Floor — 1 plate thick, at ground level
 floor = Slab(width_studs=20, length_studs=15, colour=Tan)
