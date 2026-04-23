@@ -23,6 +23,7 @@ from py4bricks.geometry import (
 )
 from py4bricks.llm.box import Box
 from py4bricks.llm.group import Group
+from py4bricks.llm.roof import Roof
 from py4bricks.llm.scene import Scene
 from py4bricks.llm.slab import Slab
 from py4bricks.llm.types import Facing, Side
@@ -33,6 +34,7 @@ __all__ = [
     "Box",
     "Facing",
     "Group",
+    "Roof",
     "Scene",
     "Side",
     "Slab",

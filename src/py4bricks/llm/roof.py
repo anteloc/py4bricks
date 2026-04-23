@@ -1,3 +1,4 @@
+from py4bricks.llm.types import Facing
 from pympler.asizeof import leng
 from turtle import left
 from typing import Literal
@@ -11,7 +12,8 @@ from py4bricks.library.parts.slopes import (
     SlopeBrick452X1,
     SlopeBrick452X1Double,
 )
-from py4bricks.llm import Group, Scene, Facing
+from py4bricks.llm.group import Group
+# from py4bricks.llm.types import Facing
 from py4bricks.pieces import Piece
 from py4bricks.geometry import studs_to_ldu, plates_to_ldu, ldu_to_brick_height
 
@@ -22,14 +24,14 @@ class Roof(Group):
         width_studs: int,
         length_studs: int,
         ridge_running: Literal["north-south", "east-west"],
-        colour: Colour,
+        colour: Colour = Red,
     ) -> None:
         super().__init__(name=name)
 
         left_slope_facing, right_slope_facing = (
-            (Facing.NORTH, Facing.EAST) 
+            ("north", "east") 
             if ridge_running == "north-south"
-            else (Facing.SOUTH, Facing.WEST)
+            else ("south", "west")
         )
 
         # TODO calculate height: pythagorean theorem, width_studs / 2 is the base, 45 deg the angle
@@ -77,13 +79,13 @@ class Roof(Group):
         gable = Piece(part=slope_part, colour=colour)
 
         # number of rows running parallel to roof's ridge
-        num_rows = height_ldu // gable.ldu_y
-        slopes_per_row = length_ldu // gable.ldu_z
+        num_rows = int( height_ldu / gable.ldu_y)
+        slopes_per_row = int( length_ldu / gable.ldu_z)
 
 
-        sign = 1 if facing in (Facing.NORTH, Facing.EAST) else -1
-        back_studs = sign * 1 if facing in (Facing.NORTH, Facing.SOUTH) else 0
-        right_studs = sign * 1 if facing in (Facing.EAST, Facing.WEST) else 0
+        sign = 1 if facing in ("north", "east") else -1
+        back_studs = sign * 1 if facing in ("north", "south") else 0
+        right_studs = sign * 1 if facing in ("east", "west") else 0
 
         slope_1st = gable.copy()
         group.place_at(slope_1st, facing=facing)
