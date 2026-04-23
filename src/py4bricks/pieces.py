@@ -23,6 +23,23 @@ from py4bricks.geometry import (
 from py4bricks.library import get_dimensions
 
 
+# Parts whose LDraw origin does NOT sit at the geometric center of their bounding box.
+# The default offset formula (see Piece.__init__) assumes a plain rectangular brick
+# where every footprint cell has a stud and the LDraw origin is at the bbox center
+# — correct for most bricks/plates, wrong for slopes and other specialty parts.
+#
+# Each entry overrides the (x, z) components of the offset, expressed as the vector
+# from the leftmost-front footprint cell centroid to the LDraw origin, in local LDU.
+# Add a part here only when its default placement is visibly off-centre.
+#
+# 3040b (SlopeBrick452X1): 1x2 slope, lone stud at the back.  LDraw anchors the
+# origin on that stud (local z=30), not on the bbox centre (z=20), so the default
+# formula places the piece's middle — not its front-left cell — on the user's position.
+_OFFSET_XZ_OVERRIDES: dict[str, tuple[float, float]] = {
+    "3040b": (0.0, 20.0),
+}
+
+
 class Piece:
     """A Piece is a Part with a defined colour, position, and rotation."""
 
@@ -148,14 +165,25 @@ class Piece:
         self.studs_z = self.dimensions.get("studs_z", 0)
 
         # Offset from bottom-left-front origin to LDraw origin.
-        # X/Z: leftmost-stud centroid → piece geometric center.
-        # Y: bottom face → top face (LDraw origin is at the top of the part,
-        #    at the stud-base plane; equals ldu_y minus the 4-LDU stud/sill).
+        # X/Z: leftmost-front footprint cell centroid → LDraw origin.
+        #      Default assumes the LDraw origin is at the bbox centre; parts that
+        #      break that assumption live in _OFFSET_XZ_OVERRIDES.
+        # Y: bottom face → stud-base plane (LDraw origin sits at the top of the body,
+        #    i.e. ldu_y minus the 4-LDU stud height).
+        if self.part in _OFFSET_XZ_OVERRIDES:
+            offset_x, offset_z = _OFFSET_XZ_OVERRIDES[self.part]
+        else:
+            offset_x = self.ldu_x / 2 - LDU_PER_STUD / 2
+            offset_z = self.ldu_z / 2 - LDU_PER_STUD / 2
+
         self.offset = Vector(
-            x=self.ldu_x / 2 - LDU_PER_STUD / 2,
+            x=offset_x,
             y=self.ldu_y - LDU_PER_STUD_HEIGHT,
-            z=self.ldu_z / 2 - LDU_PER_STUD / 2,
+            z=offset_z,
         )
+
+        print(f"Initialized piece {self.part} with dimensions (LDU) {self.ldu_x} x {self.ldu_y} x {self.ldu_z} and studs {self.studs_x} x {self.studs_y} x {self.studs_z}")
+        print(f"Calculated offset for piece {self.part}: {self.offset}")
 
         self.group = group
         if group:

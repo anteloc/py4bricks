@@ -208,11 +208,28 @@ class Group:
         """
         ref_bounds     = self._bounds(ref, _ORIGIN, _IDENTITY)
         structural_top = ref_bounds.max_y - LDU_PER_STUD_HEIGHT
+
+        offset_sign = 1 if facing in ("north", "east") else -1
+        offset_x = item.studs_x // 2 if facing in ("east", "west") else 0
+        offset_z = item.studs_z // 2 if facing in ("north", "south") else 0
+
+        offset = Vector(
+            offset_sign * studs_to_ldu(offset_x),
+            0,
+            offset_sign * studs_to_ldu(offset_z),
+        )
         item.position  = Vector(
             ref.position.x + studs_to_ldu(right_studs),
             structural_top,
             ref.position.z + studs_to_ldu(back_studs),
         )
+
+        # item.position -= offset
+
+        # Piece.place_on_top(item, ref, right_studs=right_studs, back_studs=back_studs)
+
+        # Piece.attach_to(item, ref, side="top", orientation=facing, right_studs=right_studs, back_studs=back_studs)
+
         self._set_facing(item, facing)
         self._register(item)
         return item
