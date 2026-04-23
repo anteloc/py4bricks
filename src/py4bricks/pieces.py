@@ -185,9 +185,6 @@ class Piece:
             z=overrides.get("z", self.ldu_z / 2 - LDU_PER_STUD / 2),
         )
 
-        print(f"Initialized piece {self.part} with dimensions (LDU) {self.ldu_x} x {self.ldu_y} x {self.ldu_z} and studs {self.studs_x} x {self.studs_y} x {self.studs_z}")
-        print(f"Calculated offset for piece {self.part}: {self.offset}")
-
         self.group = group
         if group:
             group._adopt(self)

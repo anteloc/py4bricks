@@ -1,69 +1,75 @@
 """
 Sloped bricks stacked like gables on a roof would do, ridge built by a double sided slope brick.
-Base for both sides of the roof are 2 × Brick1X2, then 2 × SlopeBrick452X1, then the SlopeBrick451X1Double as the ridge.
 
-Sloped bricks have two anti-studs at the bottom, and one stud on top, being the other supressed and replaced by the slope.
-To correctly stack them as if it were gables on a roof, the slopes must be displaced by 1 stud relative to the support bricks (for the 1st gable) 
-and relative to the underlying slope (for the 2nd gable).
-
-The current layout causes for both 2nd gables to meet at the top, and the double slope, placed on top of both, constitutes the ridge.
+The current layout causes for both 2nd gables to meet at the top, and the double slope/tile 1x3, placed on top of both, constitutes the ridge.
 """
 from py4bricks.colour import Colour
 from turtle import right
 
 from pathlib import Path
 
-from py4bricks.library.colours import Blue, Red, Medium_Azure
+from py4bricks.library.colours import White, Blue, Red, Green, Medium_Azure
 from py4bricks.library.parts.bricks import Brick1X1, Brick1X2, Brick10X10, Brick2X1WithPositioningRockets
 from py4bricks.library.parts.slopes import SlopeBrick452X1, SlopeBrick451X1Double, SlopeBrick452X1Double
+from py4bricks.library.parts.tiles import Tile1X3
 
-from py4bricks.llm import Scene
+from py4bricks.llm import Scene, Group
 from py4bricks.pieces import Piece
 
-def add_origin_marker(scene: Scene, piece: Piece, colour: Colour) -> None:
+def debug_add_origin_marker(scene: Scene, piece: Piece, colour: Colour) -> None:
     origin_marker = Piece(part=Brick1X1, colour=colour)
     origin_marker.position = piece.position
     scene.add(origin_marker)
 
-# SlopeBrick452X1
-# "3040b": { "ldu_x": 20.0, "ldu_y": 28.0, "ldu_z": 40.0, "studs_x": 1, "studs_y": 2, "plates_y": 4, "studs_z": 2, },
-# Brick1X2
-# "3004": { "ldu_x": 40.0, "ldu_y": 28.0, "ldu_z": 20.0, "studs_x": 2, "studs_y": 2, "plates_y": 4, "studs_z": 1, },
+def build_slope(
+    height_blocks: int,
+    facing: str,
+    colour: Colour,
+) -> Group:
+
+    group = Group()
+
+    sign = 1 if facing in ("north", "east") else -1
+    back_studs = sign * 1 if facing in ("north", "south") else 0
+    right_studs = sign * 1 if facing in ("east", "west") else 0
+
+    slope_1st = Piece(part=SlopeBrick452X1, colour=colour)
+    group.place_at(slope_1st, facing=facing)
+
+    prev_slope = slope_1st
+    for _ in range(1, height_blocks):
+        slope = Piece(part=SlopeBrick452X1, colour=colour)
+        group.place_on_top_of(slope, 
+                            prev_slope, 
+                            right_studs=right_studs, 
+                            back_studs=back_studs, 
+                            facing=facing)
+        prev_slope = slope
+
+    return group
 
 scene = Scene("Gables made of sloped bricks test")
 
-# even row: 2 × Brick1X2
-# left_support = Piece(part=Brick1X1, colour=Blue)
-# left_support = Piece(part=Brick1X2, colour=Blue)
-# left_support = Piece(part=Brick10X10, colour=Blue)
-# scene.place_at(left_support, studs_x=0, plates_y=0, studs_z=0, facing="east")
+slopes_height_blocks = 5
 
-# add_origin_marker(scene, left_support, Medium_Azure)
+left_support = Piece(part=Brick1X2, colour=Blue)
+scene.place_at(left_support, studs_x=0, plates_y=0, studs_z=0, facing="north")
 
-# gable_1st_left = Piece(part=Brick1X2, colour=Red)
-gable_1st_left = Piece(part=SlopeBrick452X1, colour=Red)
-# gable_1st_left = Piece(part=Brick2X1WithPositioningRockets, colour=Red)
-scene.place_at(gable_1st_left, studs_x=0, plates_y=0, studs_z=0, facing="north")
-# scene.place_on_top_of(gable_1st_left, left_support, facing="north")
+left_slope = build_slope(scene, left_support, height_blocks=slopes_height_blocks, facing="north", colour=Red)
 
-add_origin_marker(scene, gable_1st_left, Medium_Azure)
+scene.place_on_top_of(left_slope, left_support, right_studs=0, facing="north")
 
-gable_2nd_left = Piece(part=SlopeBrick452X1, colour=Red )
-scene.place_on_top_of(gable_2nd_left, gable_1st_left, back_studs=1, facing="north")
+print(f"Left slope placed with position {left_slope.position} and dimensions {left_slope.studs_x} x {left_slope.plates_y} x {left_slope.studs_z}")
 
+right_support = Piece(part=Brick1X2, colour=Blue)
+scene.place_at(right_support, studs_x=left_slope.studs_x, plates_y=0, studs_z=left_slope.studs_z, facing="south")
 
-# right_support = Piece(part=Brick1X2, colour=Blue)
-# scene.place_at(right_support, studs_x=2*left_support.studs_x - 1, plates_y=0, studs_z=0, facing="east")
-
-# gable_1st_right = Piece(part=SlopeBrick452X1, colour=Red)
-# scene.place_on_top_of(gable_1st_right, right_support, right_studs=1, facing="west")
-
-# gable_2nd_right = Piece(part=SlopeBrick452X1, colour=Red)
-# scene.place_on_top_of(gable_2nd_right, gable_1st_right, right_studs=-1, facing="west")
+# right_slope = build_slope(scene, right_support, height_blocks=slopes_height_blocks, facing="south", colour=Red)
+# scene.place_on_top_of(right_slope, right_support, right_studs=0, facing="west")
 
 # top = Piece(part=Brick1X1, colour=Red)
-top = Piece(part=SlopeBrick452X1Double, colour=Red)
-scene.place_on_top_of(top, gable_2nd_left, back_studs=1, facing="north")
+# top = Piece(part=SlopeBrick452X1Double, colour=Red)
+# scene.place_on_top_of(top, gable_2nd_left, back_studs=1, facing="north")
 
 
 scene.render_file(Path(__file__).with_suffix(".mpd"))
