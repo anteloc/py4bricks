@@ -32,6 +32,8 @@ from py4bricks.geometry import (
     LDU_PER_STUD_HEIGHT,
     Matrix,
     Vector,
+    ldu_to_plates,
+    ldu_to_studs,
     orientation_to_rotation,
     plates_to_ldu,
     studs_to_ldu,
@@ -97,12 +99,12 @@ class Group:
         )
     """
 
-    name:        str = ""
-    studs_x:     InitVar[int] = 0
-    plates_y:    InitVar[int] = 0
-    studs_z:     InitVar[int] = 0
-    orientation: InitVar[Facing] = "north"
-    children:    list[Piece | Group] = field(default_factory=list)
+    name:          str = ""
+    at_studs_x:    InitVar[int] = 0
+    at_plates_y:   InitVar[int] = 0
+    at_studs_z:    InitVar[int] = 0
+    orientation:   InitVar[Facing] = "north"
+    children:      list[Piece | Group] = field(default_factory=list)
 
     # Derived in __post_init__; used by _traverse() and by Piece.__repr__.
     local_pos: Vector = field(init=False)
@@ -110,15 +112,15 @@ class Group:
 
     def __post_init__(
         self,
-        studs_x: int,
-        plates_y: int,
-        studs_z: int,
+        at_studs_x: int,
+        at_plates_y: int,
+        at_studs_z: int,
         orientation: Facing,
     ) -> None:
         self.local_pos = Vector(
-            x=studs_to_ldu(studs_x),
-            y=plates_to_ldu(plates_y),
-            z=studs_to_ldu(studs_z),
+            x=studs_to_ldu(at_studs_x),
+            y=plates_to_ldu(at_plates_y),
+            z=studs_to_ldu(at_studs_z),
         )
         self.local_rot = orientation_to_rotation(orientation)
 
@@ -143,6 +145,30 @@ class Group:
     @rotation.setter
     def rotation(self, value: Matrix) -> None:
         self.local_rot = value
+
+    @property
+    def studs_x(self) -> int:
+        """Bounding box width of all children, in studs."""
+        if not self.children:
+            return 0
+        b = self._bounds(self, _ORIGIN, _IDENTITY)
+        return ldu_to_studs(b.max_x - b.min_x)
+
+    @property
+    def plates_y(self) -> int:
+        """Bounding box height of all children, in plates."""
+        if not self.children:
+            return 0
+        b = self._bounds(self, _ORIGIN, _IDENTITY)
+        return ldu_to_plates(b.max_y - b.min_y)
+
+    @property
+    def studs_z(self) -> int:
+        """Bounding box depth of all children, in studs."""
+        if not self.children:
+            return 0
+        b = self._bounds(self, _ORIGIN, _IDENTITY)
+        return ldu_to_studs(b.max_z - b.min_z)
 
     # ------------------------------------------------------------------
     # Container ops
@@ -209,26 +235,11 @@ class Group:
         ref_bounds     = self._bounds(ref, _ORIGIN, _IDENTITY)
         structural_top = ref_bounds.max_y - LDU_PER_STUD_HEIGHT
 
-        offset_sign = 1 if facing in ("north", "east") else -1
-        offset_x = item.studs_x // 2 if facing in ("east", "west") else 0
-        offset_z = item.studs_z // 2 if facing in ("north", "south") else 0
-
-        offset = Vector(
-            offset_sign * studs_to_ldu(offset_x),
-            0,
-            offset_sign * studs_to_ldu(offset_z),
-        )
         item.position  = Vector(
             ref.position.x + studs_to_ldu(right_studs),
             structural_top,
             ref.position.z + studs_to_ldu(back_studs),
         )
-
-        # item.position -= offset
-
-        # Piece.place_on_top(item, ref, right_studs=right_studs, back_studs=back_studs)
-
-        # Piece.attach_to(item, ref, side="top", orientation=facing, right_studs=right_studs, back_studs=back_studs)
 
         self._set_facing(item, facing)
         self._register(item)
