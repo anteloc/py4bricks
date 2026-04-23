@@ -43,13 +43,13 @@ scene = Scene("Gables made of sloped bricks test")
 # gable_1st_left = Piece(part=Brick1X2, colour=Red)
 gable_1st_left = Piece(part=SlopeBrick452X1, colour=Red)
 # gable_1st_left = Piece(part=Brick2X1WithPositioningRockets, colour=Red)
-scene.place_at(gable_1st_left, studs_x=0, plates_y=0, studs_z=0, facing="south")
+scene.place_at(gable_1st_left, studs_x=0, plates_y=0, studs_z=0, facing="north")
 # scene.place_on_top_of(gable_1st_left, left_support, facing="north")
 
 add_origin_marker(scene, gable_1st_left, Medium_Azure)
 
-# gable_2nd_left = Piece(part=SlopeBrick452X1, colour=Red )
-# scene.place_on_top_of(gable_2nd_left, gable_1st_left, back_studs=1, facing="north")
+gable_2nd_left = Piece(part=SlopeBrick452X1, colour=Red )
+scene.place_on_top_of(gable_2nd_left, gable_1st_left, back_studs=1, facing="north")
 
 
 # right_support = Piece(part=Brick1X2, colour=Blue)
@@ -61,8 +61,9 @@ add_origin_marker(scene, gable_1st_left, Medium_Azure)
 # gable_2nd_right = Piece(part=SlopeBrick452X1, colour=Red)
 # scene.place_on_top_of(gable_2nd_right, gable_1st_right, right_studs=-1, facing="west")
 
-# top = Piece(part=SlopeBrick452X1Double, colour=Red)
-# scene.place_on_top_of(top, gable_2nd_left, right_studs=1, facing="east")
+# top = Piece(part=Brick1X1, colour=Red)
+top = Piece(part=SlopeBrick452X1Double, colour=Red)
+scene.place_on_top_of(top, gable_2nd_left, back_studs=1, facing="north")
 
 
 scene.render_file(Path(__file__).with_suffix(".mpd"))

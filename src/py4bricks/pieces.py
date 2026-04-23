@@ -21,22 +21,30 @@ from py4bricks.geometry import (
     ldu_to_studs, YAxis, orientation_to_rotation, studs_to_ldu, plates_to_ldu,
 )
 from py4bricks.library import get_dimensions
+from py4bricks.library.parts.slopes import SlopeBrick451X1Double, SlopeBrick452X1, SlopeBrick452X1Double
 
 
-# Parts whose LDraw origin does NOT sit at the geometric center of their bounding box.
-# The default offset formula (see Piece.__init__) assumes a plain rectangular brick
-# where every footprint cell has a stud and the LDraw origin is at the bbox center
-# — correct for most bricks/plates, wrong for slopes and other specialty parts.
+# Parts whose LDraw origin does NOT sit where the default offset formula assumes.
+# Defaults (see Piece.__init__):
+#   x = ldu_x/2 - LDU_PER_STUD/2         # assumes LDraw origin at bbox centre in X
+#   y = ldu_y - LDU_PER_STUD_HEIGHT      # assumes part has a 4-LDU stud on top
+#   z = ldu_z/2 - LDU_PER_STUD/2         # assumes LDraw origin at bbox centre in Z
 #
-# Each entry overrides the (x, z) components of the offset, expressed as the vector
-# from the leftmost-front footprint cell centroid to the LDraw origin, in local LDU.
-# Add a part here only when its default placement is visibly off-centre.
+# Each entry maps axis -> override value (in local LDU).  Axes not listed fall
+# back to the default — so you only spell out the axis that's actually wrong.
+# Add a part here only when its default placement is visibly off.
 #
 # 3040b (SlopeBrick452X1): 1x2 slope, lone stud at the back.  LDraw anchors the
 # origin on that stud (local z=30), not on the bbox centre (z=20), so the default
 # formula places the piece's middle — not its front-left cell — on the user's position.
-_OFFSET_XZ_OVERRIDES: dict[str, tuple[float, float]] = {
-    "3040b": (0.0, 20.0),
+#
+# Y overrides become relevant for studless parts (tiles) or parts whose top face
+# isn't a stud-base plane: the default `ldu_y - 4` subtraction for the stud height
+# doesn't apply, so y should usually be set to ldu_y (or a part-specific value).
+_OFFSET_OVERRIDES: dict[str, dict[str, float]] = {
+    SlopeBrick452X1: {"z": 20.0},
+    SlopeBrick452X1Double: {"y": 24.0},  # 2-plate slope with no stud, so top face is at 2 plates, not 1 stud
+
 }
 
 
@@ -170,16 +178,11 @@ class Piece:
         #      break that assumption live in _OFFSET_XZ_OVERRIDES.
         # Y: bottom face → stud-base plane (LDraw origin sits at the top of the body,
         #    i.e. ldu_y minus the 4-LDU stud height).
-        if self.part in _OFFSET_XZ_OVERRIDES:
-            offset_x, offset_z = _OFFSET_XZ_OVERRIDES[self.part]
-        else:
-            offset_x = self.ldu_x / 2 - LDU_PER_STUD / 2
-            offset_z = self.ldu_z / 2 - LDU_PER_STUD / 2
-
+        overrides = _OFFSET_OVERRIDES.get(self.part, {})
         self.offset = Vector(
-            x=offset_x,
-            y=self.ldu_y - LDU_PER_STUD_HEIGHT,
-            z=offset_z,
+            x=overrides.get("x", self.ldu_x / 2 - LDU_PER_STUD / 2),
+            y=overrides.get("y", self.ldu_y - LDU_PER_STUD_HEIGHT),
+            z=overrides.get("z", self.ldu_z / 2 - LDU_PER_STUD / 2),
         )
 
         print(f"Initialized piece {self.part} with dimensions (LDU) {self.ldu_x} x {self.ldu_y} x {self.ldu_z} and studs {self.studs_x} x {self.studs_y} x {self.studs_z}")
