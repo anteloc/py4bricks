@@ -65,6 +65,10 @@ def brick_height_to_ldu(brick_height: int) -> float:
     """Convert brick rows to LDU."""
     return brick_height * LDU_PER_BRICK_HEIGHT
 
+def ldu_to_brick_height(ldu: float) -> int:
+    """Convert LDU to brick rows."""
+    return math.ceil(ldu / LDU_PER_BRICK_HEIGHT)
+
 def proportional(whole: int, proportion: tuple[int, int]) -> int:
     """Return the integer number corresponding to a proportion of a whole number.
     
