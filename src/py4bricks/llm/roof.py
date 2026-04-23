@@ -1,7 +1,7 @@
 from typing import Literal
 
 from py4bricks.colour import Colour
-from py4bricks.geometry import studs_to_ldu
+from py4bricks.geometry import LDU_PER_STUD, studs_to_ldu
 from py4bricks.library.colours import Red
 from py4bricks.library.parts.slopes import SlopeBrick452X1, SlopeBrick452X1Double
 from py4bricks.llm.group import Group
@@ -41,34 +41,35 @@ class Roof(Group):
         slope_depth_ldu = perp_ldu / 2
 
         left_slope = self._build_slope(
-            height_ldu=slope_depth_ldu,
+            slope_depth_ldu=slope_depth_ldu,
             ridge_ldu=ridge_ldu,
             facing=left_slope_facing,
             colour=colour,
         )
         right_slope = self._build_slope(
-            height_ldu=slope_depth_ldu,
+            slope_depth_ldu=slope_depth_ldu,
             ridge_ldu=ridge_ldu,
             facing=right_slope_facing,
             colour=colour,
             with_top=True,
         )
 
-        # Bug 2 fix: the slope groups are not rotated at placement time —
-        # the bricks inside already carry the correct orientation.  Rotating
-        # the group too would compose rotations and flip the bricks.
-        # The right slope starts at the far wall and grows inward.
-        self.place_at(left_slope, studs_x=0, plates_y=0, studs_z=0)
-
+        # Slope groups are not rotated at placement time — the bricks inside
+        # already carry the correct orientation.  Rotating the group too would
+        # compose rotations and flip the bricks.
+        # Each slope sits 1 stud outside the box on its own exterior side, so
+        # the left/right placements are symmetric about the ridge.
         if ridge_running == "east-west":
+            self.place_at(left_slope,  studs_x=0, plates_y=0, studs_z=-1)
             self.place_at(right_slope, studs_x=0, plates_y=0, studs_z=length_studs)
         else:
+            self.place_at(left_slope,  studs_x=-1,          plates_y=0, studs_z=0)
             self.place_at(right_slope, studs_x=width_studs, plates_y=0, studs_z=0)
 
     def _build_slope(
         self,
-        height_ldu: float,
-        ridge_ldu: float,   # length of the ridge (bricks tile along this axis)
+        slope_depth_ldu: float,  # horizontal span from wall to ridge
+        ridge_ldu: float,        # length of the ridge (bricks tile along this axis)
         facing: Facing,
         colour: Colour,
         with_top: bool = False,
@@ -77,9 +78,8 @@ class Roof(Group):
         group = Group()
         gable = Piece(part=SlopeBrick452X1, colour=colour)
 
-        # rows climbing up the slope face
-        num_rows = int(height_ldu / gable.ldu_y)
-        # Bug 3 fix: each brick is 1 stud wide along the ridge (ldu_x = 20);
+        # Each row advances 1 stud horizontally; first brick contributes 2 studs
+        num_rows = int(slope_depth_ldu / LDU_PER_STUD)
         # iterate columns to cover the full ridge length.
         slopes_per_row = int(ridge_ldu / gable.ldu_x)
 

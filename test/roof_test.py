@@ -29,7 +29,7 @@ scene.add(box)
 roof = Roof(name="Roof", 
             width_studs=box.width_studs, 
             length_studs=box.length_studs, 
-            ridge_running="east-west", 
+            ridge_running="north-south", 
             colour=Red)
 
 scene.place_on_top_of(roof, box)
