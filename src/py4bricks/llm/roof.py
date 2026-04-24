@@ -6,7 +6,7 @@ from py4bricks.library.colours import Red
 from py4bricks.library.parts.bricks import Brick1X1
 from py4bricks.library.parts.slopes import SlopeBrick452X1, SlopeBrick452X1Double
 from py4bricks.llm.group import Group
-from py4bricks.llm.types import Facing
+from py4bricks.llm.types import Facing, Orientation
 from py4bricks.pieces import Piece
 
 
@@ -16,7 +16,7 @@ class Roof(Group):
         name: str,
         width_studs: int,   # east-west dimension (X), same convention as Box
         length_studs: int,  # north-south dimension (Z), same convention as Box
-        ridge_running: Literal["north-south", "east-west"],
+        ridge_running: Orientation,
         colour: Colour = Red,
     ) -> None:
         super().__init__(name=name)

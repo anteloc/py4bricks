@@ -19,4 +19,7 @@ from __future__ import annotations
 from typing import Literal
 
 Facing = Literal["north", "south", "east", "west"]
+Direction = Literal["north", "south", "east", "west"]
+Orientation = Literal["north-south", "east-west"]
 Side   = Literal["east", "west", "north", "south"]
+

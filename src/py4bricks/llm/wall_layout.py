@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from py4bricks.colour import Colour
-    from py4bricks.llm.types import Facing
+    from py4bricks.llm.types import Direction
 
 from py4bricks.geometry import Vector, orientation_to_rotation, studs_to_ldu
 from py4bricks.llm.group import Group
@@ -98,7 +98,7 @@ class WallLayout(Group):
         *,
         name: str,
         length_studs: int,
-        direction: Facing,
+        direction: Direction,
     ) -> Wall:
         """Add a named Wall and advance the turtle by the same length.
 
