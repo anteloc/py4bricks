@@ -3,6 +3,7 @@ from typing import Literal
 from py4bricks.colour import Colour
 from py4bricks.geometry import LDU_PER_STUD, studs_to_ldu
 from py4bricks.library.colours import Red
+from py4bricks.library.parts.bricks import Brick1X1
 from py4bricks.library.parts.slopes import SlopeBrick452X1, SlopeBrick452X1Double
 from py4bricks.llm.group import Group
 from py4bricks.llm.types import Facing
@@ -39,6 +40,8 @@ class Roof(Group):
         ridge_ldu       = width_ldu if ridge_running == "east-west" else length_ldu
         perp_ldu        = length_ldu if ridge_running == "east-west" else width_ldu
         slope_depth_ldu = perp_ldu / 2
+        # Row count shared by slopes and gables: both rise the same number of rows.
+        num_rows        = int(slope_depth_ldu / LDU_PER_STUD)
 
         left_slope = self._build_slope(
             slope_depth_ldu=slope_depth_ldu,
@@ -65,6 +68,53 @@ class Roof(Group):
         else:
             self.place_at(left_slope,  studs_x=-1,          plates_y=0, studs_z=0)
             self.place_at(right_slope, studs_x=width_studs, plates_y=0, studs_z=0)
+
+        # Triangular gable walls close off the two open ends of the ridge.
+        # Base width = perp span + 2 to cover the 1-stud overhang each slope has.
+        # Height = num_rows, so the gable rises to the same level as the slopes.
+        gable_base_studs = int(perp_ldu / LDU_PER_STUD) + 2
+
+        if ridge_running == "east-west":
+            # Gables at west/east ends; rotate so the locally-X base extends along Z.
+            self.place_at(
+                self._build_gable(gable_base_studs, num_rows, colour),
+                studs_x=0, plates_y=0, studs_z=-1, facing="west",
+            )
+            self.place_at(
+                self._build_gable(gable_base_studs, num_rows, colour),
+                studs_x=width_studs, plates_y=0, studs_z=-1, facing="west",
+            )
+        else:
+            # Gables at south/north ends; base already along X, no rotation needed.
+            self.place_at(
+                self._build_gable(gable_base_studs, num_rows, colour),
+                studs_x=-1, plates_y=0, studs_z=0,
+            )
+            self.place_at(
+                self._build_gable(gable_base_studs, num_rows, colour),
+                studs_x=-1, plates_y=0, studs_z=length_studs,
+            )
+
+    def _build_gable(self, base_studs: int, num_rows: int, colour: Colour) -> Group:
+        """Staircase triangle of 1x1 bricks; base along local +X, growing upward.
+
+        Row i: (base_studs - 2*i) bricks, inset by i studs on each side,
+        stacked 3 plates (= 1 brick body) above the row below.
+        """
+        group = Group()
+        plates_per_brick = 3
+        for row in range(num_rows):
+            row_width = base_studs - 2 * row
+            if row_width <= 0:
+                break
+            for col in range(row_width):
+                group.place_at(
+                    Piece(part=Brick1X1, colour=colour),
+                    studs_x=row + col,
+                    plates_y=row * plates_per_brick,
+                    studs_z=0,
+                )
+        return group
 
     def _build_slope(
         self,
