@@ -60,7 +60,7 @@ class Box(WallLayout):
         self.width_studs  = width_studs
         self.length_studs = length_studs
 
-        self.add_wall(name="south", length_studs=width_studs - 1,  orientation="east")
-        self.add_wall(name="east",  length_studs=length_studs - 1, orientation="north")
-        self.add_wall(name="north", length_studs=width_studs - 1,  orientation="west")
-        self.add_wall(name="west",  length_studs=length_studs - 1, orientation="south")
+        self.add_wall(name="south", length_studs=width_studs - 1,  direction="east")
+        self.add_wall(name="east",  length_studs=length_studs - 1, direction="north")
+        self.add_wall(name="north", length_studs=width_studs - 1,  direction="west")
+        self.add_wall(name="west",  length_studs=length_studs - 1, direction="south")

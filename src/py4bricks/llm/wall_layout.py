@@ -98,7 +98,7 @@ class WallLayout(Group):
         *,
         name: str,
         length_studs: int,
-        orientation: Facing,
+        direction: Facing,
     ) -> Wall:
         """Add a named Wall and advance the turtle by the same length.
 
@@ -110,14 +110,14 @@ class WallLayout(Group):
         Raises ValueError if the wall is not perpendicular to the previous one.
         """
         if self._prev_orientation is not None:
-            pair = frozenset({self._prev_orientation, orientation})
+            pair = frozenset({self._prev_orientation, direction})
             if pair not in _PERPENDICULAR:
                 raise ValueError(
-                    f"Wall '{name}' ('{orientation}') must be perpendicular to "
+                    f"Wall '{name}' ('{direction}') must be perpendicular to "
                     f"previous wall ('{self._prev_orientation}')"
                 )
 
-        wall_facing, dx, dz = _TRAVEL[orientation]
+        wall_facing, dx, dz = _TRAVEL[direction]
 
         # The turtle marks the corner where the next wall begins.
         cx, cz = self._turtle
@@ -138,7 +138,7 @@ class WallLayout(Group):
 
         # Move the turtle to the next corner by the same number of studs.
         self._turtle           = (cx + dx * length_studs, cz + dz * length_studs)
-        self._prev_orientation = orientation
+        self._prev_orientation = direction
         return wall
 
     def __getitem__(self, name: str) -> Wall:

@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from py4bricks.colour import Colour
-from py4bricks.library.colours import Blue, Red
+from py4bricks.library.colours import White, Red
 from py4bricks.library.parts.bricks import (
     Brick1X1,
     Brick1X2,
@@ -23,12 +23,19 @@ def debug_add_origin_marker(scene: Scene, piece: Piece, colour: Colour) -> None:
 
 scene = Scene("A Box with a Roof on top, made of sloped bricks test")
 
-box = Box(name="Box", width_studs=10, length_studs=20, height_bricks=3, colour=Red, bonded=True)
+box = Box(name="Box", 
+          width_studs=10, 
+          length_studs=20, 
+          height_bricks=3, 
+          colour=White, 
+          bonded=True)
+
 scene.add(box)
 
 roof = Roof(name="Roof", 
             width_studs=box.width_studs, 
             length_studs=box.length_studs, 
+            # ridge_running="east-west", 
             ridge_running="north-south", 
             colour=Red)
 

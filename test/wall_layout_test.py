@@ -37,11 +37,11 @@ scene = Scene("WallLayout test")
 
 layout = WallLayout(height_bricks=8, colour=Light_Grey, bonded=True)
 
-layout.add_wall(name="south", length_studs=20, orientation="east")
-layout.add_wall(name="east",  length_studs=15, orientation="north")
-layout.add_wall(name="north", length_studs=20, orientation="west")
-layout.add_wall(name="west",  length_studs=10, orientation="south")
-layout.add_wall(name="step",  length_studs=12, orientation="east")
+layout.add_wall(name="south", length_studs=20, direction="east")
+layout.add_wall(name="east",  length_studs=15, direction="north")
+layout.add_wall(name="north", length_studs=20, direction="west")
+layout.add_wall(name="west",  length_studs=10, direction="south")
+layout.add_wall(name="step",  length_studs=12, direction="east")
 
 layout["south"].insert(
     piece=Piece(part=Door1X4X6Frame, colour=Tan),
