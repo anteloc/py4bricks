@@ -4,28 +4,42 @@
 
 from pathlib import Path
 
-from py4bricks.library.colours import Blue, Red, Green, Yellow
-from py4bricks.library.parts.bricks import Brick2X2, Brick2X10, Brick2X2RoundWithoutReinforcement
-from py4bricks.llm import Scene, Column
+from py4bricks.library.colours import Blue, Green, Red, Rubber_Dark_Azure, Yellow
+from py4bricks.library.parts.bricks import (
+                            Brick1X2,
+                            Brick2X2RoundWithoutReinforcement,
+                            Brick2X10,
+)
+from py4bricks.llm import Column, Scene
 
 scene = Scene("Small structures samples")
 
+# A round column, using the default circular part
 round_column = Column(height_bricks=10, colour=Green, facing="east", shape="circular")
 scene.place_at(round_column, studs_x=0, plates_y=0, studs_z=0, facing="east")
 
-thick_round_column = Column(height_bricks=10, colour=Green, facing="east", 
+# A thicker round column, using a 2x2 custom circular part
+thick_round_column = Column(height_bricks=10, colour=Green, facing="east",
                             shape="circular", circular_part=Brick2X2RoundWithoutReinforcement)
 scene.place_at(thick_round_column, studs_x=20, plates_y=0, studs_z=0, facing="east")
 
+# A square column, using the default square part
 square_column = Column(height_bricks=10, colour=Red, facing="east", shape="square")
 scene.place_at(square_column, studs_x=0, plates_y=0, studs_z=20, facing="west")
 
+# A thicker square column, using a 2x10 custom square part
 pillar = Column(height_bricks=10, colour=Red, facing="east", shape="square", square_part=Brick2X10)
 scene.place_at(pillar, studs_x=0, plates_y=0, studs_z=40, facing="west")
 
-colum_row_item = Column(height_bricks=10, colour=Blue, facing="east", shape="square")
-column_row = Column.column_row(prototype=colum_row_item, count=5, spacing_studs=4)
-scene.place_at(column_row, studs_x=20, plates_y=0, studs_z=20, facing="east")
+# A row of columns
+col_row_item = Column(height_bricks=10, colour=Blue, facing="east", shape="square")
+col_row = Column.column_row(prototype=col_row_item, count=5, spacing_studs=4)
+scene.place_at(col_row, studs_x=20, plates_y=0, studs_z=20, facing="east")
+
+# A row of columns with slabs on top
+col_row_slabs_item = Column(height_bricks=10, colour=Rubber_Dark_Azure, facing="north", shape="square", square_part=Brick1X2)
+col_row_slabs = Column.column_row(prototype=col_row_slabs_item, count=7, spacing_studs=4, with_slabs_colour=Yellow)
+scene.place_at(col_row_slabs, studs_x=40, plates_y=0, studs_z=20, facing="west")
 
 file_path = Path(__file__).with_suffix(".mpd")
 scene.render_file(file_path)

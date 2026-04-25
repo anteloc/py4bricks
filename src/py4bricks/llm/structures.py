@@ -3,7 +3,6 @@ from py4bricks.library.colours import White
 from pygments.token import Literal
 from os import name
 from turtle import distance, position
-from blib2to3.pgen2.grammar import _P
 
 from typing import TYPE_CHECKING
 
@@ -22,6 +21,8 @@ from py4bricks.geometry import (
 )
 from py4bricks.library.parts.bricks import Brick1X1, Brick1X2, Brick1X1RoundWithoutGroove
 from py4bricks.llm.group import Group
+from py4bricks.llm.slab import Slab
+
 from py4bricks.pieces import Piece
 
 
@@ -32,13 +33,30 @@ class Column(Group):
                     prototype: Column, 
                     count: int, 
                     spacing_studs: int, 
+                    with_slabs_colour: Colour | None = None
         ) -> Group:
 
+        column_row = Group()
+
         columns = Group()
+
         for i in range(count):
             column = prototype.copy()
             columns.place_at(column, studs_x=i * spacing_studs, plates_y=0, studs_z=0)
-        return columns
+
+        if with_slabs_colour is not None:
+            slab_width = columns.studs_z if prototype.facing in ("east", "west") else columns.studs_x
+            slab_length = columns.studs_x if prototype.facing in ("east", "west") else columns.studs_z
+            slab = Slab(width_studs=slab_width, 
+                        length_studs=slab_length, 
+                        colour=with_slabs_colour)
+
+            column_row.add(columns)
+            column_row.place_on_top_of(slab, columns, facing=prototype.facing)
+        else:
+            column_row.add(columns)
+            
+        return column_row
 
     def __init__(
         self,
@@ -65,6 +83,7 @@ class Column(Group):
             colour=colour,
             rotation=orientation_to_rotation(facing),
         )
+
 
         self.add(first_piece)
 
