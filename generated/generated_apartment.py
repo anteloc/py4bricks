@@ -42,9 +42,11 @@
 #
 # Build order (bottom-up):
 #   1. Floor slab
-#   2. Exterior box (all 4 walls, windows + door)
-#   3. Living room divider wall (horizontal, z=20)
-#   4. Kitchen / bathroom divider wall (vertical, x=30)
+#   2. Building body
+#       a. Exterior box (all 4 walls, windows + door)
+#       b. living_divider  (E-W, divider_wall from box["east"] → box["west"])
+#       c. kitchen_bath_div (N-S, divider_wall from box["south"] → living_divider)
+#   3. Body placed on top of floor slab
 # ============================================================
 """
 from pathlib import Path
@@ -59,8 +61,7 @@ from py4bricks.library.colours import (
 )
 from py4bricks.library.parts.doors import Door1X4X6Frame
 from py4bricks.library.parts.windows import Window1X4X3WithoutShutterTabs
-from py4bricks.llm import Scene, Slab, Wall
-from py4bricks.llm.box import Box
+from py4bricks.llm import Box, Group, Scene, Slab, Wall
 from py4bricks.pieces import Piece
 
 # ── Dimensions ────────────────────────────────────────────────────────────────
@@ -71,6 +72,9 @@ WALL_HEIGHT      = 12   # bricks
 
 # Z coordinate where living room starts (south rooms below, living room above)
 SOUTH_DEPTH = 20        # studs
+
+# X coordinate splitting kitchen (west) from bathroom (east)
+SOUTH_SPLIT_X = APARTMENT_WIDTH // 2
 
 # ── Part factories (each call returns a fresh Piece) ─────────────────────────
 
@@ -111,15 +115,16 @@ def make_exterior() -> Box:
 
 # ── Interior: living room divider ────────────────────────────────────────────
 
-def make_living_divider() -> Wall:
+def make_living_divider(exterior: Box) -> Wall:
     """East-west wall at z=SOUTH_DEPTH; separates living room from south rooms.
 
-    Two doorways: one for the kitchen half, one for the bathroom half.
+    Derived from box["east"] ↔ box["west"]: position, rotation and length are
+    all automatic. Two doorways: one per south room (kitchen + bathroom).
     """
-    wall = Wall(
-        name="living_room_divider",
-        width_studs=APARTMENT_WIDTH,
-        height_bricks=WALL_HEIGHT,
+    wall = Wall.divider_wall(
+        from_wall=exterior["east"],
+        at_width_studs=SOUTH_DEPTH,
+        to_parallel_wall=exterior["west"],
         colour=Salmon,
         bonded=True,
     )
@@ -131,15 +136,16 @@ def make_living_divider() -> Wall:
 
 # ── Interior: kitchen / bathroom divider ─────────────────────────────────────
 
-def make_kitchen_bath_divider() -> Wall:
-    """North-south wall at x=30; divides kitchen (west) from bathroom (east).
+def make_kitchen_bath_divider(exterior: Box, living_divider: Wall) -> Wall:
+    """North-south wall at x=SOUTH_SPLIT_X; divides kitchen (west) from bathroom (east).
 
-    Spans from the south exterior wall to the living room divider (SOUTH_DEPTH studs).
+    Uses living_divider as the north boundary so the wall stops exactly there,
+    rather than spanning the full apartment depth.
     """
-    return Wall(
-        name="kitchen_bath_divider",
-        width_studs=SOUTH_DEPTH,
-        height_bricks=WALL_HEIGHT,
+    return Wall.divider_wall(
+        from_wall=exterior["south"],
+        at_width_studs=SOUTH_SPLIT_X,
+        to_parallel_wall=living_divider,
         colour=Light_Green,
         bonded=True,
     )
@@ -159,25 +165,22 @@ def make_floor() -> Slab:
 scene = Scene("Apartment")
 
 # 1. Floor
-scene.place_at(make_floor(), studs_x=0, plates_y=0, studs_z=0)
+slab_floor = make_floor()
+scene.place_at(slab_floor, studs_x=0, plates_y=0, studs_z=0)
 
-# 2. Exterior box (walls sit on the floor)
-scene.place_at(make_exterior(), studs_x=0, plates_y=0, studs_z=0)
+# 2. Building body: exterior + interior dividers
+body = Group()
 
-# 3. Living room divider: east-west wall, facing="north" so local-X = east
-scene.place_at(
-    make_living_divider(),
-    studs_x=0, plates_y=0, studs_z=SOUTH_DEPTH,
-    facing="north",
-)
+exterior = make_exterior()
+body.add(exterior)
 
-# 4. Kitchen/bath divider: north-south wall, facing="west" so local-X = north
-#    Spans from z=0 (south exterior) to z=SOUTH_DEPTH (living divider)
-scene.place_at(
-    make_kitchen_bath_divider(),
-    studs_x=30, plates_y=0, studs_z=0,
-    facing="west",
-)
+living_divider = make_living_divider(exterior)
+body.add(living_divider)
+
+body.add(make_kitchen_bath_divider(exterior, living_divider))
+
+# 3. Place body on top of floor slab
+scene.place_on_top_of(body, slab_floor)
 
 # ── Render ────────────────────────────────────────────────────────────────────
 
