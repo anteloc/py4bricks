@@ -84,6 +84,7 @@ class Wall(Group):
         at_width_studs: int,
         to_parallel_wall: Wall,
         colour: Colour | None = None,
+        bonded: bool = False,
     ) -> Wall:
         """A wall perpendicular to from_wall, starting at_studs_x on from_wall, 
         that extends to to_parallel_wall, effectively dividing the corridor between from_wall and to_parallel_wall."""
@@ -118,7 +119,7 @@ class Wall(Group):
             width_studs=distance_studs,
             height_bricks=from_wall._height_bricks,
             colour=colour if colour is not None else from_wall._colour,
-            bonded=from_wall._bonded,
+            bonded=bonded,
         )
 
         wall.position = wall_pos

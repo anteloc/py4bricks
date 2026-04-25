@@ -49,20 +49,21 @@ class Roof(Group):
             else ("north", "south")
         )
 
-        width_ldu  = studs_to_ldu(width_studs)
-        length_ldu = studs_to_ldu(length_studs)
-
         # The ridge runs along one axis; slopes span the perpendicular axis.
         # Each slope covers half that perpendicular span.
-        ridge_ldu       = width_ldu if ridge_running == "east-west" else length_ldu
-        perp_ldu        = length_ldu if ridge_running == "east-west" else width_ldu
+        ridge_studs     = width_studs if ridge_running == "east-west" else length_studs
+        perp_studs     = length_studs if ridge_running == "east-west" else width_studs
+        
+        ridge_ldu       = studs_to_ldu(ridge_studs)
+        perp_ldu        = studs_to_ldu(perp_studs)
+
         slope_depth_ldu = perp_ldu / 2
 
-        is_odd_slope_depth = ldu_to_studs(slope_depth_ldu) % 2 != 0
+        even_slope_depth = perp_studs % 2 == 0
 
         self.top_piece = (
             self.top_double_slope
-            if is_odd_slope_depth
+            if even_slope_depth
             else self.top_tile
         )
 

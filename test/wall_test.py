@@ -1,15 +1,11 @@
-"""
-Wall different wall features tests — using the Wall API.
+"""Wall different wall features tests — using the Wall API.
 
 """
 
 from pathlib import Path
 
 from py4bricks.library.colours import Light_Blue, Light_Grey, Tan
-from py4bricks.library.parts.doors import Door1X4X6Frame
-from py4bricks.library.parts.windows import Window1X4X3WithoutShutterTabs
 from py4bricks.llm import Scene, Wall
-from py4bricks.pieces import Piece
 
 scene = Scene("Wall with window and door frame test")
 
