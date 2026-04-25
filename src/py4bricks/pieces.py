@@ -21,7 +21,7 @@ from py4bricks.geometry import (
     Identity,
     Matrix,
     Vector,
-    ldu_to_studs, YAxis, orientation_to_rotation, studs_to_ldu, plates_to_ldu,
+    ldu_to_studs, YAxis, orientation_to_rotation, studs_to_ldu, plates_to_ldu, ldu_to_plates
 )
 from py4bricks.library import get_dimensions
 from py4bricks.library.colours import White
@@ -29,36 +29,11 @@ from py4bricks.library.parts.slopes import SlopeBrick451X1Double, SlopeBrick452X
 from py4bricks.library.parts.tiles import Tile1X3
 
 
-# Parts whose LDraw origin does NOT sit where the default offset formula assumes.
 # Defaults (see Piece.__init__):
 #   x = ldu_x/2 - LDU_PER_STUD/2         # assumes LDraw origin at bbox centre in X
 #   y = ldu_y - LDU_PER_STUD_HEIGHT      # assumes part has a 4-LDU stud on top
 #   z = ldu_z/2 - LDU_PER_STUD/2         # assumes LDraw origin at bbox centre in Z
 #
-# Each entry maps axis -> override value (in local LDU).  Axes not listed fall
-# back to the default — so you only spell out the axis that's actually wrong.
-# Add a part here only when its default placement is visibly off.
-#
-# 3040b (SlopeBrick452X1): 1x2 slope, lone stud at the back.  LDraw anchors the
-# origin on that stud (local z=30), not on the bbox centre (z=20), so the default
-# formula places the piece's middle — not its front-left cell — on the user's position.
-#
-# Y overrides become relevant for studless parts (tiles) or parts whose top face
-# isn't a stud-base plane: the default `ldu_y - 4` subtraction for the stud height
-# doesn't apply, so y should usually be set to ldu_y (or a part-specific value).
-_OFFSET_OVERRIDES: dict[str, dict[str, float] | Callable[[Any], dict[str, float]]] = {
-    # SlopeBrick452X1: {"z": 20.0},
-    SlopeBrick452X1Double: lambda p:  {"y": p.ldu_y},
-}
-
-def offset_overrides_for(piece: str) -> dict[str, float]:
-    override = _OFFSET_OVERRIDES.get(piece.part, {})
-
-    if callable(override):
-        return override(piece)
-    else:        
-        return override
-
 class Piece:
     """A Piece is a Part with a defined colour, position, and rotation."""
 
@@ -174,27 +149,30 @@ class Piece:
         self.colour = colour
         self.rotation = rotation
         self.part = part.lower()
-        self.dimensions = get_dimensions(part)
-        self.ldu_x = self.dimensions.get("ldu_x", 0)
-        self.ldu_y = self.dimensions.get("ldu_y", 0)
-        self.ldu_z = self.dimensions.get("ldu_z", 0)
-        self.studs_x = self.dimensions.get("studs_x", 0)
-        self.studs_y = self.dimensions.get("studs_y", 0)
-        self.plates_y = self.dimensions.get("plates_y", 0)
-        self.studs_z = self.dimensions.get("studs_z", 0)
+        
+        dimensions = get_dimensions(part)
+        self.ldu_x = dimensions.get("ldu_x", 0)
+        self.ldu_y = dimensions.get("ldu_y", 0)
+        self.ldu_z = dimensions.get("ldu_z", 0)
+        self.studs_x = dimensions.get("studs_x", 0)
+        self.studs_y = dimensions.get("studs_y", 0)
+        self.plates_y = dimensions.get("plates_y", 0)
+        self.studs_z = dimensions.get("studs_z", 0)
 
         # Offset from bottom-left-front origin to LDraw origin.
         # X/Z: leftmost-front footprint cell centroid → LDraw origin.
-        #      Default assumes the LDraw origin is at the bbox centre; parts that
-        #      break that assumption live in _OFFSET_XZ_OVERRIDES.
+        #      Default assumes the LDraw origin is at the bbox centre
         # Y: bottom face → stud-base plane (LDraw origin sits at the top of the body,
         #    i.e. ldu_y minus the 4-LDU stud height).
-        overrides = offset_overrides_for(self)
         self.render_pos_offset = Vector(
-            x=overrides.get("x", self.ldu_x / 2 - LDU_PER_STUD / 2),
-            y=overrides.get("y", self.ldu_y - LDU_PER_STUD_HEIGHT),
-            z=overrides.get("z", self.ldu_z / 2 - LDU_PER_STUD / 2),
+            x=self.ldu_x / 2 - LDU_PER_STUD / 2,
+            y=self.ldu_y - LDU_PER_STUD_HEIGHT,
+            z=self.ldu_z / 2 - LDU_PER_STUD / 2,
         )
+
+        # a placeholder to be set by subclasses to customize the visual final aspect of 
+        # the piece by rotating it
+        self.render_rot_offset = Identity()
 
         self.group = group
         if group:
@@ -206,8 +184,9 @@ class Piece:
         Called by Scene._resolve(), which composes the full transform chain before
         invoking this — keeping all matrix arithmetic out of LLM-generated scripts.
         """
-        tup = tuple(reduce(lambda row1, row2: row1 + row2, rotation.rows))
-        origin = position + rotation * self.render_pos_offset
+        _rotation = rotation * self.render_rot_offset
+        tup = tuple(reduce(lambda row1, row2: row1 + row2, _rotation.rows))
+        origin = position + _rotation * self.render_pos_offset
         
         # print(f"Rendering piece {self.part} at {position} with rotation {rotation} and offset {self.offset}, resulting in origin {origin}")
         
@@ -272,30 +251,26 @@ class Piece:
 
 class CustomPiece(Piece):
     """A Piece whose exposed position/rotation can be overridden and/or offset.
-
-    Behaves like a regular Piece for all placement logic (attach, place_on_top, ...),
-    but reads of `position` / `rotation` substitute overrides for the stored values
-    and then apply offsets on top.  All four parameters are callables that receive
-    the piece itself, so offsets/overrides can depend on piece geometry at call time.
-
-    Resolution order (each step skipped when the corresponding param is None):
-      base_position = override_position(self)  if set,  else stored _position
-      base_rotation = override_rotation(self)  if set,  else stored _rotation
-      position = base_position + offset_position(self)
-      rotation = base_rotation * offset_rotation(self)   (local-frame rotate)
     """
 
     def __init__(self,
                  colour: Colour,
                  position: Vector = Vector(0, 0, 0),
                  rotation: Matrix = Identity(),
+                 transform_by_rotating: Matrix = Identity(),
                  part: str = "",
                  group: Group | None = None,
-                 override_render_pos_offset: dict[str, float] | Callable[[Piece], Mapping[str, float]] | None = None,
+                 override_render_pos_offset: dict[str, float] 
+                    | Callable[[Piece], Mapping[str, float]] 
+                    | None = None,
     ) -> None:
+        self.transform_by_rotating = transform_by_rotating
         self.override_render_offset = override_render_pos_offset
         super().__init__(colour, position, rotation, part, group)
-
+        
+        # Apply rotation transform: dimensions change and the piece will also be rendered rotated
+        self.render_rot_offset = transform_by_rotating
+        self._transform_dimensions()
 
         if override_render_pos_offset is not None:
             _render_pos_offset = (override_render_pos_offset(self) # ty:ignore[call-top-callable]
@@ -308,14 +283,24 @@ class CustomPiece(Piece):
                 z=_render_pos_offset.get("z", self.render_pos_offset.z),
             )
 
-            print(f"CustomPiece init: override_render_offset={override_render_pos_offset}, resulting offset={self.render_pos_offset}")
-
+    def _transform_dimensions(self) -> None:
+        # treat dimensions as a vector for the vertex of the bounding box farthest from the origin, and rotate it by transform_by_rotating to get the new dimensions.
+        original_dimensions = Vector(self.ldu_x, self.ldu_y, self.ldu_z)
+        transformed_dimensions = self.transform_by_rotating * original_dimensions
+        self.ldu_x = abs(transformed_dimensions.x)
+        self.ldu_y = abs(transformed_dimensions.y)
+        self.ldu_z = abs(transformed_dimensions.z)
+        self.studs_x = ldu_to_studs(self.ldu_x)
+        self.studs_y = ldu_to_studs(self.ldu_y)
+        self.plates_y = ldu_to_plates(self.ldu_y)
+        self.studs_z = ldu_to_studs(self.ldu_z)
 
     def copy(self) -> CustomPiece:
         return CustomPiece(
             colour=self.colour,
             position=self.position,
             rotation=self.rotation,
+            transform_by_rotating=self.transform_by_rotating,
             part=self.part,
             group=None,
             override_render_pos_offset=self.override_render_offset,

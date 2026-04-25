@@ -27,18 +27,19 @@ class Roof(Group):
 
         self.slope_piece = CustomPiece(part=SlopeBrick452X1, 
                                         colour=colour, 
-                                        override_render_pos_offset=lambda p: {"z": p.ldu_z / 2},
-                                        )
-        # self.slope_piece = Piece(part=SlopeBrick452X1, colour=colour)
+                                        override_render_pos_offset=lambda p: {"z": p.ldu_z / 2})
+
+        self.top_double_slope = CustomPiece(part=SlopeBrick452X1Double, 
+                                            colour=colour, 
+                                            override_render_pos_offset=lambda p: {"y": p.ldu_y})
+        
+        self.top_tile = CustomPiece(part=Tile1X3, 
+                                    colour=colour, 
+                                    transform_by_rotating=Identity().rotate(-90, YAxis), 
+                                    override_render_pos_offset=lambda p: {"y": p.ldu_y})
+
         self.gable_piece = Piece(part=Brick1X1, colour=colour)
 
-        
-
-        # Bug 1 fix: correct facing directions for each ridge orientation.
-        # "east-west" ridge → slopes rise from south wall (north-facing) and
-        # north wall (south-facing).
-        # "north-south" ridge → slopes rise from west wall (east-facing) and
-        # east wall (west-facing).
         left_slope_facing, right_slope_facing = (
             ("east", "west")
             if ridge_running == "north-south"
@@ -57,9 +58,9 @@ class Roof(Group):
         is_odd_slope_depth = ldu_to_studs(slope_depth_ldu) % 2 != 0
 
         self.top_piece = (
-            Piece(part=SlopeBrick452X1Double, colour=colour)
-            if is_odd_slope_depth
-            else Piece(part=Tile1X3, colour=colour).rotate_by(Identity().rotate(45, YAxis))
+            self.top_double_slope 
+            if is_odd_slope_depth 
+            else self.top_tile
         )
 
         # self.top_piece_facing = 
