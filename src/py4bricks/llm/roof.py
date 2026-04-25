@@ -1,13 +1,17 @@
 from typing import Literal
 
 from py4bricks.colour import Colour
-from py4bricks.geometry import LDU_PER_STUD, PLATES_PER_BRICK_HEIGHT, studs_to_ldu
+from py4bricks.geometry import LDU_PER_STUD, LDU_PER_STUD_HEIGHT, PLATES_PER_BRICK_HEIGHT, studs_to_ldu, Identity, YAxis, ldu_to_studs, Vector
 from py4bricks.library.colours import Red
 from py4bricks.library.parts.bricks import Brick1X1
 from py4bricks.library.parts.slopes import SlopeBrick452X1, SlopeBrick452X1Double
+from py4bricks.library.parts.tiles import Tile1X3
 from py4bricks.llm.group import Group
 from py4bricks.llm.types import Facing, Orientation
-from py4bricks.pieces import Piece
+from py4bricks.pieces import Piece, CustomPiece
+
+SLOPE_PIECE = SlopeBrick452X1
+GABLE_PIECE = SlopeBrick452X1
 
 
 class Roof(Group):
@@ -20,6 +24,15 @@ class Roof(Group):
         colour: Colour = Red,
     ) -> None:
         super().__init__(name=name)
+
+        self.slope_piece = CustomPiece(part=SlopeBrick452X1, 
+                                        colour=colour, 
+                                        override_render_pos_offset=lambda p: {"z": p.ldu_z / 2},
+                                        )
+        # self.slope_piece = Piece(part=SlopeBrick452X1, colour=colour)
+        self.gable_piece = Piece(part=Brick1X1, colour=colour)
+
+        
 
         # Bug 1 fix: correct facing directions for each ridge orientation.
         # "east-west" ridge → slopes rise from south wall (north-facing) and
@@ -40,6 +53,17 @@ class Roof(Group):
         ridge_ldu       = width_ldu if ridge_running == "east-west" else length_ldu
         perp_ldu        = length_ldu if ridge_running == "east-west" else width_ldu
         slope_depth_ldu = perp_ldu / 2
+
+        is_odd_slope_depth = ldu_to_studs(slope_depth_ldu) % 2 != 0
+
+        self.top_piece = (
+            Piece(part=SlopeBrick452X1Double, colour=colour)
+            if is_odd_slope_depth
+            else Piece(part=Tile1X3, colour=colour).rotate_by(Identity().rotate(45, YAxis))
+        )
+
+        # self.top_piece_facing = 
+
         # Row count shared by slopes and gables: both rise the same number of rows.
         num_rows        = int(slope_depth_ldu / LDU_PER_STUD)
 
@@ -49,6 +73,7 @@ class Roof(Group):
             facing=left_slope_facing,
             colour=colour,
         )
+        
         right_slope = self._build_slope(
             slope_depth_ldu=slope_depth_ldu,
             ridge_ldu=ridge_ldu,
@@ -109,7 +134,7 @@ class Roof(Group):
                 break
             for col in range(1, row_width):
                 group.place_at(
-                    Piece(part=Brick1X1, colour=colour),
+                    self.gable_piece.copy(),
                     studs_x=row + col,
                     plates_y=row * PLATES_PER_BRICK_HEIGHT,
                     studs_z=0,
@@ -126,12 +151,14 @@ class Roof(Group):
     ) -> Group:
 
         group = Group()
-        gable = Piece(part=SlopeBrick452X1, colour=colour)
+
+        slope_piece = self.slope_piece.copy()
+        slope_piece.colour = colour
 
         # Each row advances 1 stud horizontally; first brick contributes 2 studs
         num_rows = int(slope_depth_ldu / LDU_PER_STUD)
         # iterate columns to cover the full ridge length.
-        slopes_per_row = int(ridge_ldu / gable.ldu_x)
+        slopes_per_row = int(ridge_ldu / slope_piece.ldu_x)
 
         # per-row offset in the slope direction (into the slope, away from the wall)
         sign       = 1 if facing in ("north", "east") else -1
@@ -142,8 +169,10 @@ class Roof(Group):
         col_right = 1 if facing in ("north", "south") else 0  # X for N/S slopes
         col_back  = 1 if facing in ("east",  "west")  else 0  # Z for E/W slopes
 
+        # top = self.top_piece["even" if num_rows % 2 else "odd"]
+
         for col in range(slopes_per_row):
-            slope_1st = gable.copy()
+            slope_1st = slope_piece.copy()
             group.place_at(
                 slope_1st,
                 studs_x=col * col_right,
@@ -153,7 +182,7 @@ class Roof(Group):
 
             prev_slope = slope_1st
             for _ in range(1, num_rows):
-                slope = gable.copy()
+                slope = slope_piece.copy()
                 group.place_on_top_of(
                     slope,
                     prev_slope,
@@ -164,9 +193,8 @@ class Roof(Group):
                 prev_slope = slope
 
             if with_top:
-                top = Piece(part=SlopeBrick452X1Double, colour=colour)
                 group.place_on_top_of(
-                    top,
+                    self.top_piece.copy(),
                     prev_slope,
                     right_studs=right_studs,
                     back_studs=back_studs,
