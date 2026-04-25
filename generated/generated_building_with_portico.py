@@ -56,7 +56,7 @@ from py4bricks.library.colours import (
 )
 from py4bricks.library.parts.doors import Door1X4X6Frame
 from py4bricks.library.parts.windows import Window1X4X3WithoutShutterTabs
-from py4bricks.llm import Box, Column, Group, Scene, Slab
+from py4bricks.llm import Box, Column, Group, Scene, Slab, Wall
 from py4bricks.pieces import Piece
 
 # ── Dimensions ────────────────────────────────────────────────────────────────
@@ -81,6 +81,50 @@ def make_window() -> Piece:
 def make_door() -> Piece:
     """Fresh Reddish_Brown door frame piece."""
     return Piece(part=Door1X4X6Frame, colour=Reddish_Brown)
+
+# ── Inner walls ──────────────────────────────────────────────────────────────
+
+def add_inner_walls(box: Box) -> None:
+    """Add two crossing interior partition walls to a floor Box (mutates in place).
+
+    Room layout (top view, all floors):
+
+       ┌──────────────────────────────────┐
+       │  office A    │    office B       │
+    z≈13├──────────────┼───────────────────┤  ← ew_divider
+       │  office C    │    office D       │
+       └──────────────────────────────────┘
+      x=0             x=20             x=40
+
+    Both walls use divider_wall so position, rotation and length are derived
+    automatically from the box's exterior walls.  Adding them to the box group
+    ensures they are elevated together with the box when it is stacked.
+    """
+    # E-W divider at z≈13: splits each half north/south
+    ew_divider = Wall.divider_wall(
+        from_wall=box["east"],
+        at_width_studs=14,
+        to_parallel_wall=box["west"],
+        colour=Light_Bluish_Grey,
+        bonded=True,
+    )
+    # Doorway centred in each east/west wing
+    ew_divider.opening(studs_x=8,  brick_row=0, width_studs=4, height_bricks=5)
+    ew_divider.opening(studs_x=27, brick_row=0, width_studs=4, height_bricks=5)
+    box.add(ew_divider)
+
+    # N-S divider at x≈19: splits each half east/west, full interior depth
+    ns_divider = Wall.divider_wall(
+        from_wall=box["south"],
+        at_width_studs=20,
+        to_parallel_wall=box["north"],
+        colour=White,
+        bonded=True,
+    )
+    # Doorway in each south/north half
+    ns_divider.opening(studs_x=5,  brick_row=0, width_studs=4, height_bricks=5)
+    ns_divider.opening(studs_x=20, brick_row=0, width_studs=4, height_bricks=5)
+    box.add(ns_divider)
 
 # ── Per-floor walls ───────────────────────────────────────────────────────────
 
@@ -152,8 +196,9 @@ def make_building_level(floor_num: int, is_top_floor: bool = False) -> Group:
     )
     level.add(floor_slab)
 
-    # Walls for this floor, stacked on the slab
+    # Walls for this floor (exterior + inner partitions), stacked on the slab
     walls = make_floor_walls(floor_num)
+    add_inner_walls(walls)
     level.place_on_top_of(walls, floor_slab)
 
     # Ground floor: portico in front of south entrance
