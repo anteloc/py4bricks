@@ -31,6 +31,23 @@ b) **Test it** by generating and running scripts to evaluate their quality and t
 - Delegates the heavy work to the current underlying implementation for both geometry and parts.
 - The more this new API looks like a **DSL for a blind person** to create LEGO buildings, the better.
 
+## LDraw Information Sources
+
+- Read the LDraw specs for more context about parts geometry, features, etc.
+   - See: `doc/ldraw-specs.md`
+   - Specs specify that **Y-negative** is **up**, however we will work assuming that **Y-positive** is up, and current implementation will change the sign when producing the .mpd model file.
+- If needed for creating tests or simple examples:
+   - Find parts of different types under: `src/py4bricks/library/parts`
+   - Parts are grouped by type in files like e.g. `bricks.py`, `doors.py`, etc.
+   - Try to infer a piece's dimensions from the part's variable name, like e.g. `Window1X4X3`
+      - Parts naming convention: 
+         - `NameLXWXHDescription`: includes height
+         - `NameLXWDescription`: does not include height
+   - Alternatively, for accurate dimensions for a certain part, run e.g.
+   ```shell
+   grep -A 1 '# Window1X4X3WithoutShutterTabs$' src/py4bricks/library/dimensions.py
+   ```
+
 ## Development Commands
 
 This project uses uv for dependency management and packaging.
@@ -55,6 +72,35 @@ uv pip install -e . # make py4bricks available for importing while also editing
    - These modules will be delegating the heavy work to the Non-LLM friendly API.
    - Coordinates will be expressed by Vectors, on a conventional coordinates system where Y axis is **positive** for "up".
    - As much as possible, **use as units studs (X and Z axis) and plates (Y axis)**, then to be **translated to LDUs when delegating** to the Non-LLM friendly API.
+   - Make functions and methods signatures LLM-friendly by designing them in such a way that:
+      - Functions signatures **look much like templates for an LLM to fill**
+         - Something like: 
+            ```python
+            def some_function(piece: Piece, 
+                              on_top_of: Piece, 
+                              orientation: Literal["north", "south", "east", "west"]
+            ) -> Piece
+            ```
+         - Instead of:
+            ```python
+            def some_function(p1: Piece, 
+                              p2: Piece, 
+                              o: Literal["north", "south", "east", "west"]
+            ) -> Piece
+            ```
+      - Generated functions calls will be the **result of an LLM filling those templates**. 
+         - Something like:
+            ```python
+               some_function(piece=some_piece, 
+                              on_top_of=base_piece, 
+                              orientation="north")
+            ```
+         - Instead of:
+            ```python
+               some_function(some_piece, 
+                              base_piece, 
+                              "north")
+            ```
 
 ### Key Classes
 
@@ -63,13 +109,15 @@ uv pip install -e . # make py4bricks available for importing while also editing
 - **Rule:** unless instructed otherwise, **do not** go to:
    - `py4bricks/generation/`: this is for generating py4bricks/library dir.
    - `py4bricks/library/`: there are huge files here, containing entities representing the massive collection of LDraw parts.
-   - **Rule exception**: `py4bricks/library/colours.py` contains colour definitions, this is **allowed** for you to read
+- **Rule exception: these are allowed to read**: 
+   - `py4bricks/library/colours.py` contains colour definitions
+   - `py4bricks/library/dimensions.py` contains parts dimensions (studs, LDUs, etc)
 
 ## Python Practices (MANDATORY)
 - **DO's:**
    - What follows should be tailored for you to help you follow the code and make changes
+   - Do TDD if **asked to implement something and also to create tests** for it: first write the tests, then implement the requested feature.
    - Add comments and docstrings suitable for RAG for functions, constants, etc.
-   - Prefer @dataclasses where applicable
    - Always use f-string over string formatting or concatentation (except in logging strings)
    - Use async generators and comprehensions when they might provide benefits
    - Use underscores in large numeric literals
@@ -83,8 +131,6 @@ uv pip install -e . # make py4bricks available for importing while also editing
       - Numeric literals, like e.g. 
       - For typical operations like e.g. `ROTATE_NORTH: Matrix = ...`
    - Indicated mathematical operations instead of calculations, such as `middle_distance = WALL_LENGTH / 2` instead of `middle_distance = 0.75`
-   - Get a piece's dimensions from its properties: piece.studs_x, piece.plates_y, etc.
 - **DON'Ts:** 
    - Alter generated source files
-   - Try to infer a piece's dimensions the part's variable name, like e.g. Window1X4X3
    - Try and fix linter errors in the code

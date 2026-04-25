@@ -1,112 +1,146 @@
-"""Box: a rectangular structure with four walls"""
+"""wall_layout.py — LLM-friendly WallLayout: a turtle-path collection of named Walls.
 
+The turtle starts at the layout origin. Each add_wall() call:
+  1. Places a Wall at the current turtle corner.
+  2. Advances the turtle by the full requested length in the travel direction.
+
+This version deliberately keeps the rule simple:
+  * every wall is built at exactly the requested length;
+  * corners are handled only by placement, not by shortening any wall.
+
+Coordinate conventions (layout-local, same as Scene):
+    X — east (+) / west (-)
+    Z — north (+) / south (-)
+    Y — up (plates)
+
+Travel → wall facing:
+    "east"  → "north"   (wall extends along world +X)
+    "west"  → "south"   (wall extends along world −X)
+    "north" → "west"    (wall extends along world +Z)
+    "south" → "east"    (wall extends along world −Z)
+
+Usage:
+    layout = WallLayout(height_bricks=8, colour=Light_Grey, bonded=True)
+    layout.add_wall(name="south", length_studs=20, orientation="east")
+    layout.add_wall(name="east",  length_studs=15, orientation="north")
+    layout["south"].insert(
+        piece=Piece(part=Door1X4X6Frame, colour=Tan),
+        studs_x=8, brick_row=0,
+    )
+    scene.place_at(layout, studs_x=0, plates_y=0, studs_z=0)
+"""
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING
 
-from py4bricks.colour import Colour
-from py4bricks.errors import BuilderError
-from py4bricks.geometry import (
-    Vector,
-    plates_to_brick_height,
-    studs_to_ldu,
-)
-from py4bricks.library.colours import White
-from py4bricks.utils import single_value_or_error
+if TYPE_CHECKING:
+    from py4bricks.colour import Colour
+    from py4bricks.llm.types import Direction
 
-from .wall import Wall
+from py4bricks.geometry import Vector, orientation_to_rotation, studs_to_ldu
+from py4bricks.llm.group import Group
+from py4bricks.llm.wall import Wall
+
+# travel orientation → (wall_facing, dx, dz)
+# dx/dz are the unit step the turtle takes per stud in that direction.
+_TRAVEL: dict[str, tuple[str, int, int]] = {
+    "east":  ("north", +1,  0),
+    "west":  ("south", -1,  0),
+    "north": ("west",   0, +1),
+    "south": ("east",   0, -1),
+}
+
+# Frozensets of the only valid orientation pairs for consecutive walls.
+_PERPENDICULAR: frozenset[frozenset[str]] = frozenset({
+    frozenset({"east",  "north"}),
+    frozenset({"east",  "south"}),
+    frozenset({"west",  "north"}),
+    frozenset({"west",  "south"}),
+})
 
 
-class WallLayout:
-    """A WallLayout is a set of walls interconnected by corners, one following the other.
+class WallLayout(Group):
+    """A turtle-path collection of named, auto-positioned Wall segments.
 
+    Walls must be added in order and each consecutive pair must be
+    perpendicular (90°). Callers provide the exact wall length to build.
+
+    The algorithm is intentionally simple:
+      * place each wall at the current turtle corner;
+      * build it at the exact requested length;
+      * advance the turtle by that same length to reach the next corner.
+
+    No special shortening or offsetting is applied for shared corners.
     """
 
-    def __init__(self,
-                 walls_height_plates: int = 0,
-                 walls_height_bricks: int = 0,
-                 first_wall_position: Vector = Vector(0, 0, 0),
-                 colour: Colour = White,
+    def __init__(
+        self,
+        *,
+        height_bricks: int,
+        colour: Colour,
+        bonded: bool = False,
+        name: str = "",
     ) -> None:
-        self.first_wall_position = first_wall_position
-        self.colour = colour
-        self.walls: list[Wall] = []
+        super().__init__(name=name)
+        self._height_bricks      = height_bricks
+        self._colour             = colour
+        self._bonded             = bonded
+        self._walls: dict[str, Wall] = {}
+        self._turtle: tuple[int, int] = (0, 0)
+        self._prev_orientation: str | None = None
 
-        height_values = (
-            walls_height_bricks,
-            plates_to_brick_height(walls_height_plates),
-        )
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
-        self.walls_height_bricks = single_value_or_error(height_values, 0, "height (bricks or plates)")
+    def add_wall(
+        self,
+        *,
+        name: str,
+        length_studs: int,
+        direction: Direction,
+    ) -> Wall:
+        """Add a named Wall and advance the turtle by the same length.
 
-    def append_wall(self,
-                    name: str,
-                    wall_width_studs: int,
-                    facing: Literal["north", "south", "east", "west"],
-    ) -> None:
-        """Appends a new wall to the layout, connected to the previous wall by a corner.
-        
-        The first wall is placed at `first_wall_position`. Each subsequent wall is placed at the end of the previous wall, with a 90 degree clockwise rotation (e.g. if the first wall faces north, the second will face east, then south, then west...).
+        orientation — compass direction the turtle travels to lay this wall.
+        length_studs — exact length to build for this wall.
 
+        Returns the created Wall so callers can chain .insert() / .opening().
+
+        Raises ValueError if the wall is not perpendicular to the previous one.
         """
-        if not self.walls:
-            self.walls.append(
-                Wall(
-                    name=name,
-                    studs_width=wall_width_studs,
-                    bricks_height=self.walls_height_bricks,
-                    position=self.first_wall_position,
-                    facing=facing,
-                    colour=self.colour,
-                ))
-            return
+        if self._prev_orientation is not None:
+            pair = frozenset({self._prev_orientation, direction})
+            if pair not in _PERPENDICULAR:
+                raise ValueError(
+                    f"Wall '{name}' ('{direction}') must be perpendicular to "
+                    f"previous wall ('{self._prev_orientation}')",
+                )
 
-        prev_wall = self.walls[-1]
+        wall_facing, dx, dz = _TRAVEL[direction]
 
-        # TODO validate new wall's facing direction is not the same or opposite to the previous wall's facing direction
+        # The turtle marks the corner where the next wall begins.
+        cx, cz = self._turtle
 
-
-        prev_wall_end_pos = prev_wall.end_position
-
-
-        # due to the fact that the end position is actually at a corner of the last brick,
-        # manually creating this table by trial and error is easier than trying
-        # to derive a formula based on the wall and piece geometry and offsets
-        facing_offsets = {
-            ("north", "east"): Vector(0, 0, studs_to_ldu(1)),   # ok
-            ("north", "west"): Vector(-studs_to_ldu(1), 0, 0),  # ok
-            ("south", "east"): Vector(studs_to_ldu(1), 0, 0),   # ok
-            ("south", "west"): Vector(0, 0, -studs_to_ldu(1)),  # ok
-            ("east", "north"): Vector(0, 0, -studs_to_ldu(1)),  # ok
-            ("east", "south"): Vector(-studs_to_ldu(1), 0, 0), # ok
-            ("west", "north"): Vector(studs_to_ldu(1), 0, 0), # ok
-            ("west", "south"): Vector(0, 0, studs_to_ldu(1)), # ok
-        }
-
-        facings = (prev_wall.facing, facing)
-        if facings not in facing_offsets:
-            raise BuilderError(f"Invalid facing directions for new wall: {facings}. It cannot be the same or opposite as the previous wall's facing direction.")
-
-        wall_pos = prev_wall_end_pos + facing_offsets[facings]
-
-        wall = Wall.from_dimensions(
+        # Build the wall exactly as requested, anchored at the current corner.
+        wall = Wall(
+            width_studs=length_studs,
+            height_bricks=self._height_bricks,
+            colour=self._colour,
+            bonded=self._bonded,
             name=name,
-            studs_width=wall_width_studs - 1,  # corner brick belongs to previous wall
-            bricks_height=self.walls_height_bricks,
-            colour=self.colour,
         )
-        wall.place(at=wall_pos, facing=facing)
+        wall.local_pos = Vector(x=studs_to_ldu(cx), y=0, z=studs_to_ldu(cz))
+        wall.local_rot = orientation_to_rotation(wall_facing)
 
-        self.walls.append(wall)
+        self._walls[name] = wall
+        self.children.append(wall)
 
-    # retrieve walls by name on a dict-like way, e.g. wall_layout["north_wall"]
-    def __getitem__(self, wall_name: str) -> Wall:
-        for wall in self.walls:
-            if wall.name == wall_name:
-                return wall
-        raise KeyError(f"Wall with name '{wall_name}' not found in the layout.")
+        # Move the turtle to the next corner by the same number of studs.
+        self._turtle           = (cx + dx * length_studs, cz + dz * length_studs)
+        self._prev_orientation = direction
+        return wall
 
-    def __repr__(self) -> str:
-        reprs = [repr(wall) for wall in self.walls]
-
-        return "\n".join(reprs)
+    def __getitem__(self, name: str) -> Wall:
+        """Return the named Wall for insert / opening modifications."""
+        return self._walls[name]
