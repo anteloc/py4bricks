@@ -10,9 +10,6 @@ from py4bricks.llm.group import Group
 from py4bricks.llm.types import Facing, Orientation
 from py4bricks.pieces import Piece, CustomPiece
 
-SLOPE_PIECE = SlopeBrick452X1
-GABLE_PIECE = SlopeBrick452X1
-
 
 class Roof(Group):
     def __init__(
