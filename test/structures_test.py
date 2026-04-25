@@ -23,7 +23,9 @@ scene.place_at(square_column, studs_x=0, plates_y=0, studs_z=20, facing="west")
 pillar = Column(height_bricks=10, colour=Red, facing="east", shape="square", square_part=Brick2X10)
 scene.place_at(pillar, studs_x=0, plates_y=0, studs_z=40, facing="west")
 
-
+colum_row_item = Column(height_bricks=10, colour=Blue, facing="east", shape="square")
+column_row = Column.column_row(prototype=colum_row_item, count=5, spacing_studs=4)
+scene.place_at(column_row, studs_x=20, plates_y=0, studs_z=20, facing="east")
 
 file_path = Path(__file__).with_suffix(".mpd")
 scene.render_file(file_path)
