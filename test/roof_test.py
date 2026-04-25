@@ -2,16 +2,11 @@
 from pathlib import Path
 
 from py4bricks.colour import Colour
-from py4bricks.library.colours import White, Red
+from py4bricks.library.colours import Red, White
 from py4bricks.library.parts.bricks import (
     Brick1X1,
-    Brick1X2,
 )
-from py4bricks.library.parts.slopes import (
-    SlopeBrick452X1,
-    SlopeBrick452X1Double,
-)
-from py4bricks.llm import Group, Scene, Box, Roof
+from py4bricks.llm import Box, Roof, Scene
 from py4bricks.pieces import Piece
 
 
@@ -23,20 +18,20 @@ def debug_add_origin_marker(scene: Scene, piece: Piece, colour: Colour) -> None:
 
 scene = Scene("A Box with a Roof on top, made of sloped bricks test")
 
-box = Box(name="Box", 
-          width_studs=11, 
-          length_studs=20, 
-          height_bricks=3, 
-          colour=White, 
+box = Box(name="Box",
+          width_studs=11,
+          length_studs=20,
+          height_bricks=3,
+          colour=White,
           bonded=True)
 
 scene.add(box)
 
-roof = Roof(name="Roof", 
-            width_studs=box.width_studs, 
-            length_studs=box.length_studs, 
-            # ridge_running="east-west", 
-            ridge_running="north-south", 
+roof = Roof(name="Roof",
+            width_studs=box.width_studs,
+            length_studs=box.length_studs,
+            # ridge_running="east-west",
+            ridge_running="north-south",
             colour=Red)
 
 scene.place_on_top_of(roof, box)

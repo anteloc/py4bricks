@@ -114,7 +114,7 @@ class WallLayout(Group):
             if pair not in _PERPENDICULAR:
                 raise ValueError(
                     f"Wall '{name}' ('{direction}') must be perpendicular to "
-                    f"previous wall ('{self._prev_orientation}')"
+                    f"previous wall ('{self._prev_orientation}')",
                 )
 
         wall_facing, dx, dz = _TRAVEL[direction]

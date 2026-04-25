@@ -1,14 +1,20 @@
-from typing import Literal
 
 from py4bricks.colour import Colour
-from py4bricks.geometry import LDU_PER_STUD, LDU_PER_STUD_HEIGHT, PLATES_PER_BRICK_HEIGHT, studs_to_ldu, Identity, YAxis, ldu_to_studs, Vector
+from py4bricks.geometry import (
+    LDU_PER_STUD,
+    PLATES_PER_BRICK_HEIGHT,
+    Identity,
+    YAxis,
+    ldu_to_studs,
+    studs_to_ldu,
+)
 from py4bricks.library.colours import Red
 from py4bricks.library.parts.bricks import Brick1X1
 from py4bricks.library.parts.slopes import SlopeBrick452X1, SlopeBrick452X1Double
 from py4bricks.library.parts.tiles import Tile1X3
 from py4bricks.llm.group import Group
 from py4bricks.llm.types import Facing, Orientation
-from py4bricks.pieces import Piece, CustomPiece
+from py4bricks.pieces import CustomPiece, Piece
 
 
 class Roof(Group):
@@ -22,17 +28,17 @@ class Roof(Group):
     ) -> None:
         super().__init__(name=name)
 
-        self.slope_piece = CustomPiece(part=SlopeBrick452X1, 
-                                        colour=colour, 
+        self.slope_piece = CustomPiece(part=SlopeBrick452X1,
+                                        colour=colour,
                                         override_render_pos_offset=lambda p: {"z": p.ldu_z / 2})
 
-        self.top_double_slope = CustomPiece(part=SlopeBrick452X1Double, 
-                                            colour=colour, 
+        self.top_double_slope = CustomPiece(part=SlopeBrick452X1Double,
+                                            colour=colour,
                                             override_render_pos_offset=lambda p: {"y": p.ldu_y})
-        
-        self.top_tile = CustomPiece(part=Tile1X3, 
-                                    colour=colour, 
-                                    transform_by_rotating=Identity().rotate(-90, YAxis), 
+
+        self.top_tile = CustomPiece(part=Tile1X3,
+                                    colour=colour,
+                                    transform_by_rotating=Identity().rotate(-90, YAxis),
                                     override_render_pos_offset=lambda p: {"y": p.ldu_y})
 
         self.gable_piece = Piece(part=Brick1X1, colour=colour)
@@ -55,12 +61,12 @@ class Roof(Group):
         is_odd_slope_depth = ldu_to_studs(slope_depth_ldu) % 2 != 0
 
         self.top_piece = (
-            self.top_double_slope 
-            if is_odd_slope_depth 
+            self.top_double_slope
+            if is_odd_slope_depth
             else self.top_tile
         )
 
-        # self.top_piece_facing = 
+        # self.top_piece_facing =
 
         # Row count shared by slopes and gables: both rise the same number of rows.
         num_rows        = int(slope_depth_ldu / LDU_PER_STUD)
@@ -71,7 +77,7 @@ class Roof(Group):
             facing=left_slope_facing,
             colour=colour,
         )
-        
+
         right_slope = self._build_slope(
             slope_depth_ldu=slope_depth_ldu,
             ridge_ldu=ridge_ldu,

@@ -32,5 +32,7 @@ wall.insert(
 
 scene.place_at(wall, studs_x=0, plates_y=0, studs_z=0, facing="north")
 
+
+
 scene.render_file(Path(__file__).with_suffix(".mpd"))
 print("Wall with window and door frame test rendered to wall_with_window_wall_test.mpd")

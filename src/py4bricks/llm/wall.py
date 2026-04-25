@@ -15,6 +15,9 @@ Typical usage:
     scene.place_at(wall, studs_x=0, plates_y=0, studs_z=0, facing="north")
 """
 from __future__ import annotations
+from os import name
+from turtle import distance, position
+from blib2to3.pgen2.grammar import _P
 
 from typing import TYPE_CHECKING
 
@@ -27,13 +30,13 @@ from py4bricks.geometry import (
     LDU_PER_STUD_HEIGHT,
     PLATES_PER_BRICK_HEIGHT,
     Vector,
+    orientation_to_rotation,
     plates_to_ldu,
-    studs_to_ldu,
+    studs_to_ldu, ldu_to_studs,
 )
 from py4bricks.library.parts.bricks import Brick1X1, Brick1X2
 from py4bricks.llm.group import Group
 from py4bricks.pieces import Piece
-
 
 class Wall(Group):
     """A non-bonded rectangular wall of Brick1X2/Brick1X1 pieces.
@@ -49,6 +52,78 @@ class Wall(Group):
     a Brick1X1 filler is placed at stud 0, then Brick1X2 pairs follow from
     stud 1, so vertical joints never align between adjacent rows.
     """
+
+    @classmethod
+    def parallel_wall(
+        cls,
+        *,
+        name: str,
+        to_wall: Wall,
+        at_distance_studs: int,
+        colour: Colour | None = None,
+    ) -> Wall:
+        """A wall parallel to the given one, start"""
+        wall = to_wall.copy()
+
+        wall.name = name
+        wall._colour = colour if colour is not None else to_wall._colour
+
+        # The wall extends along its local +X axis, so its local +Z axis is
+        # perpendicular to the wall's run. Rotating that local offset through
+        # to_wall.local_rot lands it on the correct world axis for any facing.
+        pos_offset = to_wall.local_rot * Vector(0, 0, studs_to_ldu(at_distance_studs))
+        wall.position = to_wall.position + pos_offset
+
+        return wall
+
+    @classmethod
+    def divider_wall(
+        cls,
+        *,
+        from_wall: Wall,
+        at_width_studs: int,
+        to_parallel_wall: Wall,
+        colour: Colour | None = None,
+    ) -> Wall:
+        """A wall perpendicular to from_wall, starting at_studs_x on from_wall, 
+        that extends to to_parallel_wall, effectively dividing the corridor between from_wall and to_parallel_wall."""
+
+        # Express to_parallel_wall's offset in from_wall's local frame.
+        # Local +X is along from_wall's run; local +Z is the perpendicular
+        # axis the divider must span. Working in local space makes the rest
+        # of this method orientation-agnostic.
+        world_delta = to_parallel_wall.position - from_wall.position
+        local_delta = from_wall.local_rot.transpose() * world_delta
+
+        distance_studs = ldu_to_studs(abs(local_delta.z)) - 1
+
+        x_offset_studs = at_width_studs - 1
+        z_offset_studs = 1 if local_delta.z > 0 else -1
+
+        # at_width_studs lives along from_wall's local +X; the +1 z nudge
+        # avoids interpenetration with from_wall. Rotate the local offset
+        # through from_wall.local_rot to land in world coordinates.
+        world_offset = from_wall.local_rot * Vector(
+            studs_to_ldu(x_offset_studs), 0, studs_to_ldu(z_offset_studs))
+        wall_pos = from_wall.position + world_offset
+
+        # The divider's local +X must point along from_wall's local ±Z, so
+        # its rotation is from_wall.local_rot composed with a Y spin: 270°
+        # ("west") sends local +X to local +Z, 90° ("east") to local -Z.
+        spin: Facing = "west" if local_delta.z > 0 else "east"
+        divider_rot = from_wall.local_rot * orientation_to_rotation(spin)
+
+        wall = cls(
+            name=f"{from_wall.name}_to_{to_parallel_wall.name}_divider",
+            width_studs=distance_studs,
+            height_bricks=from_wall._height_bricks,
+            colour=colour if colour is not None else from_wall._colour,
+            bonded=from_wall._bonded,
+        )
+
+        wall.position = wall_pos
+        wall.local_rot = divider_rot
+        return wall
 
     def __init__(
         self,
@@ -149,6 +224,23 @@ class Wall(Group):
         )
         self._inserts.append((piece, studs_x, brick_row))
         # _dirty already set by opening()
+
+    def copy(self) -> Wall:
+        """Create a deep copy of this Wall, including all inserts but excluding children."""
+        new_wall = Wall(
+            width_studs=self._width_studs,
+            height_bricks=self._height_bricks,
+            colour=self._colour,
+            bonded=self._bonded,
+            name=f"{self.name}_copy",
+        )
+        new_wall._grid = [row.copy() for row in self._grid]
+        new_wall._inserts = self._inserts.copy()
+        # `orientation` is stale once Scene.place_at has run, so copy the
+        # actual rotation matrix instead of going through the facing string.
+        new_wall.local_rot = self.local_rot.copy()
+        new_wall._dirty = True
+        return new_wall
 
     # ------------------------------------------------------------------
     # Internal build

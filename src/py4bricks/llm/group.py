@@ -23,13 +23,13 @@ converts to internal Vector/Matrix.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, InitVar
+from dataclasses import InitVar, dataclass, field
 from itertools import product
 from typing import TYPE_CHECKING
 
 from py4bricks.geometry import (
-    Identity,
     LDU_PER_STUD_HEIGHT,
+    Identity,
     Matrix,
     Vector,
     ldu_to_plates,
