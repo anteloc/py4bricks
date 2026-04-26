@@ -11,13 +11,13 @@ can place, stack, and query it with the same verbs:
                                 with_slabs_colour=Light_Grey)
     scene.place_on_top_of(portico, floor)
 """
+
 from __future__ import annotations
-from more_itertools import first
-from py4bricks.llm import Roof
 
 from typing import TYPE_CHECKING, Literal
 
-from py4bricks.library.colours import White, Red
+from py4bricks.library.colours import Red, White
+from py4bricks.llm import Roof
 
 if TYPE_CHECKING:
     from py4bricks.colour import Colour
@@ -88,11 +88,21 @@ class Column(Group):
         if with_slabs_colour is not None:
             # Swap width/length when columns face east/west so the slab always
             # spans their bounding box correctly irrespective of orientation.
-            slab_width  = columns.studs_z if column_prototype.facing in ("east", "west") else columns.studs_x
-            slab_length = columns.studs_x if column_prototype.facing in ("east", "west") else columns.studs_z
-            slab = Slab(width_studs=slab_width,
-                        length_studs=slab_length,
-                        colour=with_slabs_colour)
+            slab_width = (
+                columns.studs_z
+                if column_prototype.facing in ("east", "west")
+                else columns.studs_x
+            )
+            slab_length = (
+                columns.studs_x
+                if column_prototype.facing in ("east", "west")
+                else columns.studs_z
+            )
+            slab = Slab(
+                width_studs=slab_width,
+                length_studs=slab_length,
+                colour=with_slabs_colour,
+            )
             column_row.add(columns)
             column_row.place_on_top_of(slab, columns, facing=column_prototype.facing)
         else:
@@ -157,14 +167,16 @@ class Column(Group):
             square_part=self.square_part,
         )
 
+
 class Porche(Group):
     """A simple covered porch structure with either a flat or sloped roof supported by columns.
 
-    The porch is a Group composed of a row of columns (built with
-    Column.column_row) and a flat slab on top. The columns can be customized
-    with any parameters supported by Column, and the slab automatically fits
-    the row's bounding box and rotates to match the columns' orientation.
+    The porch is a Group composed of four columns and a flat or sloped roof on top. 
+    The columns can be customized by passing a customized Column instance as 
+    the `column_prototype` parameter, allowing for different heights, colours, shapes, and parts. 
+    The roof automatically sizes itself to fit the footprint of the columns.
     """
+
     def __init__(
         self,
         name: str,
@@ -179,9 +191,6 @@ class Porche(Group):
 
         self.roof_type = roof_type
 
-        
-
-
         columns = Group()
 
         front_left_col = column_prototype.copy()
@@ -193,30 +202,92 @@ class Porche(Group):
         columns.place_at(back_right_col, studs_x=width_studs, studs_z=0)
         columns.place_at(front_left_col, studs_x=0, studs_z=length_studs)
         columns.place_at(front_right_col, studs_x=width_studs, studs_z=length_studs)
-        
-        # roof_width  = columns.studs_x if column_prototype.facing in ("east", "west") else columns.studs_x
-        # roof_length = columns.studs_x if column_prototype.facing in ("east", "west") else columns.studs_z
-        
-        roof_width, roof_length = ((columns.studs_z, columns.studs_x) 
-                                                                if column_prototype.facing in ("east", "west") 
-                                                                else (columns.studs_x, columns.studs_z))
-        
-        sloped_roof_ridge_running = "north-south" if column_prototype.facing in ("east", "west") else "east-west"
 
+        roof_width, roof_length = (
+            (columns.studs_z, columns.studs_x)
+            if column_prototype.facing in ("east", "west")
+            else (columns.studs_x, columns.studs_z)
+        )
+
+        sloped_roof_ridge_running = (
+            "north-south"
+            if column_prototype.facing in ("east", "west")
+            else "east-west"
+        )
 
         roof = None
         if roof_type == "flat":
-            roof = Slab(name=f"{name}_roof", 
-                        width_studs=roof_width, 
-                        length_studs=roof_length, 
-                        colour=roof_colour)
-        elif roof_type == "sloped":
-            roof = Roof(name=f"{name}_roof", 
-                width_studs=roof_width, 
-                length_studs=roof_length, 
+            roof = Slab(
+                name=f"{name}_roof",
+                width_studs=roof_width,
+                length_studs=roof_length,
                 colour=roof_colour,
-                ridge_running=sloped_roof_ridge_running)
-        
+            )
+        elif roof_type == "sloped":
+            roof = Roof(
+                name=f"{name}_roof",
+                width_studs=roof_width,
+                length_studs=roof_length,
+                colour=roof_colour,
+                ridge_running=sloped_roof_ridge_running,
+            )
 
         self.add(columns)
         self.place_on_top_of(roof, columns, facing=column_prototype.facing)
+
+
+class Balcony(Group):
+    """A simple balcony structure with a floor slab and a railing made of columns.
+
+    The balcony is a Group composed of a floor slab and a railing on three sides. 
+    The railing consists of columns that can be customized by passing a Column instance as 
+    the `column_prototype` parameter, allowing for different heights, colours, shapes, and parts. 
+    The floor slab automatically sizes itself to fit the footprint of the railing.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        column_prototype: Column,
+        width_studs: int,
+        length_studs: int,
+        floor_colour: Colour = Red,
+        railing_colour: Colour = Red,
+    ) -> None:
+        """Create a balcony structure with the given column parameters and slab colour."""
+        super().__init__()
+
+        railing = Group()
+
+        back_left_col = column_prototype.copy()
+        back_right_col = column_prototype.copy()
+
+        front_cols_count = (width_studs // 2) + 1
+        front_cols_spacing = width_studs // (front_cols_count - 1)
+
+        front_railing = Column.column_row(
+            column_prototype=column_prototype.copy(),
+            count=front_cols_count,
+            spacing_studs=front_cols_spacing,
+            with_slabs_colour=railing_colour,
+        )
+
+        railing.place_at(back_left_col, studs_x=0, studs_z=0)
+        railing.place_at(back_right_col, studs_x=width_studs, studs_z=0)
+        railing.place_at(front_railing, studs_x=0, studs_z=length_studs)
+
+        floor_width, floor_length = (
+            (railing.studs_z, railing.studs_x)
+            if column_prototype.facing in ("east", "west")
+            else (railing.studs_x, railing.studs_z)
+        )
+
+        floor = Slab(
+            name=f"{name}_floor",
+            width_studs=floor_width,
+            length_studs=floor_length,
+            colour=floor_colour,
+        )
+
+        self.add(floor)
+        self.place_on_top_of(railing, floor, facing=column_prototype.facing)
