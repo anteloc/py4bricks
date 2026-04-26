@@ -171,9 +171,9 @@ class Column(Group):
 class Porche(Group):
     """A simple covered porch structure with either a flat or sloped roof supported by columns.
 
-    The porch is a Group composed of four columns and a flat or sloped roof on top. 
-    The columns can be customized by passing a customized Column instance as 
-    the `column_prototype` parameter, allowing for different heights, colours, shapes, and parts. 
+    The porch is a Group composed of four columns and a flat or sloped roof on top.
+    The columns can be customized by passing a customized Column instance as
+    the `column_prototype` parameter, allowing for different heights, colours, shapes, and parts.
     The roof automatically sizes itself to fit the footprint of the columns.
     """
 
@@ -239,9 +239,9 @@ class Porche(Group):
 class Balcony(Group):
     """A simple balcony structure with a floor slab and a railing made of columns.
 
-    The balcony is a Group composed of a floor slab and a railing on three sides. 
-    The railing consists of columns that can be customized by passing a Column instance as 
-    the `column_prototype` parameter, allowing for different heights, colours, shapes, and parts. 
+    The balcony is a Group composed of a floor slab and a railing on three sides.
+    The railing consists of columns that can be customized by passing a Column instance as
+    the `column_prototype` parameter, allowing for different heights, colours, shapes, and parts.
     The floor slab automatically sizes itself to fit the footprint of the railing.
     """
 
@@ -256,6 +256,12 @@ class Balcony(Group):
     ) -> None:
         """Create a balcony structure with the given column parameters and slab colour."""
         super().__init__()
+
+        self.column_prototype = column_prototype
+        self.width_studs = width_studs
+        self.length_studs = length_studs
+        self.floor_colour = floor_colour
+        self.railing_colour = railing_colour
 
         railing = Group()
 
@@ -291,3 +297,14 @@ class Balcony(Group):
 
         self.add(floor)
         self.place_on_top_of(railing, floor, facing=column_prototype.facing)
+
+    def copy(self) -> Balcony:
+        """Return a new independent Balcony with the same parameters and fresh pieces."""
+        return Balcony(
+            name=self.name,
+            column_prototype=self.column_prototype,
+            width_studs=self.width_studs,
+            length_studs=self.length_studs,
+            floor_colour=self.floor_colour,
+            railing_colour=self.railing_colour,
+        )

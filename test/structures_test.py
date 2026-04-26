@@ -98,7 +98,6 @@ balcony = Balcony(
 
 scene.place_at(balcony, studs_x=75, studs_z=75, facing="south")
 
-
 file_path = Path(__file__).with_suffix(".mpd")
 scene.render_file(file_path)
 print(f"Structures test rendered to {file_path.name}")
