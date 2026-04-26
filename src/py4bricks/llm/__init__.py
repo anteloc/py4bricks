@@ -26,7 +26,7 @@ from py4bricks.llm.group import Group
 from py4bricks.llm.roof import Roof
 from py4bricks.llm.scene import Scene
 from py4bricks.llm.slab import Slab
-from py4bricks.llm.structures import Column
+from py4bricks.llm.structures import Column, Porche
 from py4bricks.llm.types import Facing, Side
 from py4bricks.llm.wall import Wall
 from py4bricks.llm.wall_layout import WallLayout
@@ -36,6 +36,7 @@ __all__ = [
     "Column",
     "Facing",
     "Group",
+    "Porche",
     "Roof",
     "Scene",
     "Side",

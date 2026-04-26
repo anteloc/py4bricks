@@ -168,7 +168,7 @@ def make_portico() -> Group:
         shape="circular",
     )
     return Column.column_row(
-        prototype=prototype,
+        column_prototype=prototype,
         count=PORTICO_COLS,
         spacing_studs=PORTICO_SPACING,
         with_slabs_colour=White,

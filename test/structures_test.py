@@ -10,7 +10,7 @@ from py4bricks.library.parts.bricks import (
                             Brick2X2RoundWithoutReinforcement,
                             Brick2X10,
 )
-from py4bricks.llm import Column, Scene
+from py4bricks.llm import Column, Scene, Porche
 
 scene = Scene("Small structures samples")
 
@@ -33,13 +33,37 @@ scene.place_at(pillar, studs_x=0, plates_y=0, studs_z=40, facing="west")
 
 # A row of columns
 col_row_item = Column(height_bricks=10, colour=Blue, facing="east", shape="square")
-col_row = Column.column_row(prototype=col_row_item, count=5, spacing_studs=4)
+col_row = Column.column_row(column_prototype=col_row_item, count=5, spacing_studs=4)
 scene.place_at(col_row, studs_x=20, plates_y=0, studs_z=20, facing="east")
 
 # A row of columns with slabs on top
 col_row_slabs_item = Column(height_bricks=10, colour=Rubber_Dark_Azure, facing="north", shape="square", square_part=Brick1X2)
-col_row_slabs = Column.column_row(prototype=col_row_slabs_item, count=7, spacing_studs=4, with_slabs_colour=Yellow)
+col_row_slabs = Column.column_row(column_prototype=col_row_slabs_item, count=7, spacing_studs=4, with_slabs_colour=Yellow)
 scene.place_at(col_row_slabs, studs_x=40, plates_y=0, studs_z=20, facing="west")
+
+# A porche with a sloped roof
+porche_col_prototype = Column(height_bricks=8, colour=Yellow, facing="north", shape="circular")
+sloped_porche = Porche(
+    name="Porche",
+    column_prototype=porche_col_prototype,
+    width_studs=16,
+    length_studs=5,
+    roof_type="sloped",
+    roof_colour=Blue,
+)
+scene.place_at(sloped_porche, studs_x=75, plates_y=0, studs_z=40, facing="east")
+
+flat_porche = Porche(
+    name="Porche",
+    column_prototype=porche_col_prototype,
+    width_studs=16,
+    length_studs=6,
+    roof_type="flat",
+    roof_colour=Red,
+)
+scene.place_at(flat_porche, studs_x=40, studs_z=75, facing="north")
+
+
 
 file_path = Path(__file__).with_suffix(".mpd")
 scene.render_file(file_path)
