@@ -168,7 +168,7 @@ class Column(Group):
         )
 
 
-class Porche(Group):
+class Porch(Group):
     """A simple covered porch structure with either a flat or sloped roof supported by columns.
 
     The porch is a Group composed of four columns and a flat or sloped roof on top.

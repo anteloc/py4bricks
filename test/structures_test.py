@@ -8,7 +8,7 @@ from py4bricks.library.parts.bricks import (
     Brick2X2RoundWithoutReinforcement,
     Brick2X10,
 )
-from py4bricks.llm import Column, Porche, Balcony, Scene
+from py4bricks.llm import Column, Porch, Balcony, Scene
 
 scene = Scene("Small structures samples")
 
@@ -61,7 +61,7 @@ scene.place_at(col_row_slabs, studs_x=40, studs_z=20, facing="west")
 porche_col_prototype = Column(
     height_bricks=8, colour=Yellow, facing="north", shape="circular",
 )
-sloped_porche = Porche(
+sloped_porche = Porch(
     name="Porche",
     column_prototype=porche_col_prototype,
     width_studs=16,
@@ -72,7 +72,7 @@ sloped_porche = Porche(
 scene.place_at(sloped_porche, studs_x=75, studs_z=40, facing="east")
 
 # A porche with a red flat roof
-flat_porche = Porche(
+flat_porche = Porch(
     name="Porche",
     column_prototype=porche_col_prototype,
     width_studs=16,
