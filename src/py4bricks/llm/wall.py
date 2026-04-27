@@ -15,9 +15,6 @@ Typical usage:
     scene.place_at(wall, studs_x=0, plates_y=0, studs_z=0, facing="north")
 """
 from __future__ import annotations
-from os import name
-from turtle import distance, position
-from blib2to3.pgen2.grammar import _P
 
 from typing import TYPE_CHECKING
 
@@ -30,13 +27,15 @@ from py4bricks.geometry import (
     LDU_PER_STUD_HEIGHT,
     PLATES_PER_BRICK_HEIGHT,
     Vector,
+    ldu_to_studs,
     orientation_to_rotation,
     plates_to_ldu,
-    studs_to_ldu, ldu_to_studs,
+    studs_to_ldu,
 )
 from py4bricks.library.parts.bricks import Brick1X1, Brick1X2
 from py4bricks.llm.group import Group
 from py4bricks.pieces import Piece
+
 
 class Wall(Group):
     """A non-bonded rectangular wall of Brick1X2/Brick1X1 pieces.
@@ -86,9 +85,9 @@ class Wall(Group):
         colour: Colour | None = None,
         bonded: bool = False,
     ) -> Wall:
-        """A wall perpendicular to from_wall, starting at_studs_x on from_wall, 
-        that extends to to_parallel_wall, effectively dividing the corridor between from_wall and to_parallel_wall."""
-
+        """A wall perpendicular to from_wall, starting at_studs_x on from_wall,
+        that extends to to_parallel_wall, effectively dividing the corridor between from_wall and to_parallel_wall.
+        """
         # Express to_parallel_wall's offset in from_wall's local frame.
         # Local +X is along from_wall's run; local +Z is the perpendicular
         # axis the divider must span. Working in local space makes the rest
