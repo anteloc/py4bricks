@@ -8,14 +8,16 @@ dist_dir="$root_dir/dist"
 
 cd "$root_dir"
 
-uv build
+# uv build
 
 mkdir -p "$tmp_dir"/test
 mkdir -p "$tmp_dir"/generated
 
-cp dist/*.whl "$tmp_dir"/
+# cp dist/*.whl "$tmp_dir"/
 cp prompts/instructions-prompt.md "$tmp_dir"/
 cp test/*.py "$tmp_dir"/test/
+cp -r src/py4bricks "$tmp_dir"/
+find "$tmp_dir" -type d -name "__pycache__" -exec rm -rf {} \;
 
 for g in generated_cottage.py generated_apartment.py generated_lighthouse.py; do
     cp "generated/$g" "$tmp_dir"/generated/

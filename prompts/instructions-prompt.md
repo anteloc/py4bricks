@@ -24,14 +24,12 @@ When generating the code, **think in terms of:**
 
 ## Preliminars
 
-Install the required `py4bricks` python package by running:
-
-`pip install py4bricks-0.1.0-py3-none-any.whl`
+Scripts **must** be created in the same dir where `py4bricks` source folder resides, in order to import the required packages and modules.
 
 
 ## Files
 
-- Read the docstrings for all **classes** and **public methods and functions** you will be using, located at: `src/py4bricks/llm/*.py`
+- Read the docstrings for all **classes** and **public methods and functions** you will be using, located at: `py4bricks/llm/*.py`
 - Refer to the `tests/*.py` **test cases** in order to get:
     - **Practical examples of the usage for methods and classes on py4bricks API**
     - **Simple examples for how to assemble basic structures**
