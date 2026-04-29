@@ -27,7 +27,7 @@ Usage:
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from py4bricks.colour import Colour
@@ -52,9 +52,10 @@ class Box(WallLayout):
         colour: Colour,
         bonded: bool = False,
         name: str = "",
+        thickness: Literal["thin", "thick"] = "thin",
     ) -> None:
         super().__init__(
-            height_bricks=height_bricks, colour=colour, bonded=bonded, name=name,
+            height_bricks=height_bricks, colour=colour, bonded=bonded, name=name, thickness=thickness
         )
 
         self.width_studs  = width_studs

@@ -15,8 +15,9 @@ Typical usage:
     scene.place_at(wall, studs_x=0, plates_y=0, studs_z=0, facing="north")
 """
 from __future__ import annotations
+from pygments.unistring import Pi
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from py4bricks.colour import Colour
@@ -30,11 +31,12 @@ from py4bricks.geometry import (
     ldu_to_studs,
     orientation_to_rotation,
     plates_to_ldu,
-    studs_to_ldu,
+    studs_to_ldu, Identity, YAxis,
 )
-from py4bricks.library.parts.bricks import Brick1X1, Brick1X2
+from py4bricks.library.parts.bricks import Brick1X1, Brick1X2, Brick2X2, Brick2X4
 from py4bricks.llm.group import Group
-from py4bricks.pieces import Piece
+from py4bricks.pieces import Piece, CustomPiece
+
 
 
 class Wall(Group):
@@ -119,6 +121,7 @@ class Wall(Group):
             height_bricks=from_wall._height_bricks,
             colour=colour if colour is not None else from_wall._colour,
             bonded=bonded,
+            thickness=from_wall._thickness,
         )
 
         wall.position = wall_pos
@@ -134,6 +137,7 @@ class Wall(Group):
         facing: Facing = "north",
         bonded: bool = False,
         name: str = "",
+        thickness: Literal["thick", "thin"] = "thin",
     ) -> None:
         # Initialise Group at the local origin with the given default facing.
         # The dataclass __init__ will call children.setter with [] via __post_init__.
@@ -143,7 +147,24 @@ class Wall(Group):
         self._height_bricks = height_bricks
         self._colour        = colour
         self._bonded        = bonded
+        self._thickness     = thickness
         self._height_plates = height_bricks * PLATES_PER_BRICK_HEIGHT
+
+        match thickness:
+            case "thin":
+                self._small_brick  = Piece(part=Brick1X1, colour=colour)
+                self._mid_brick:   Piece | None = None
+                self._medium_brick = Piece(part=Brick1X2, colour=colour)
+                self._medium_width = 2
+            case "thick":
+                # _small_brick: rotated Brick1X2 ≡ Brick2X1 (1 stud wide, 2 studs deep)
+                self._small_brick  = CustomPiece(
+                    part=Brick1X2, colour=colour,
+                    transform_by_rotating=Identity().rotate(-90, YAxis),
+                )
+                self._mid_brick    = Piece(part=Brick2X2, colour=colour)  # 2w x 2d
+                self._medium_brick = Piece(part=Brick2X4, colour=colour)  # 4w x 2d
+                self._medium_width = 4
 
         # grid[stud_x][plate_y]: True = solid, False = open
         self._grid: list[list[bool]] = [
@@ -232,6 +253,7 @@ class Wall(Group):
             height_bricks=self._height_bricks,
             colour=self._colour,
             bonded=self._bonded,
+            thickness=self._thickness,
             name=f"{self.name}_copy",
         )
         new_wall._grid = [row.copy() for row in self._grid]
@@ -256,31 +278,53 @@ class Wall(Group):
 
         for brick_row in range(self._height_bricks):
             plate_y     = brick_row * PLATES_PER_BRICK_HEIGHT
-            # bond_offset drives the phase: Brick1X2 may only start at studs
-            # where x % 2 == bond_offset.  This keeps joints offset from even
-            # rows everywhere — including to the right of openings, where a
-            # naive greedy scan would otherwise reset the phase.
-            bond_offset = 1 if (self._bonded and brick_row % 2 == 1) else 0
+            # bond_offset shifts odd rows by half a medium brick so vertical joints
+            # never align — including to the right of openings, where a naive greedy
+            # scan would otherwise reset the phase.
+            bond_offset = (
+                self._medium_width // 2 if (self._bonded and brick_row % 2 == 1) else 0
+            )
 
             x = 0
             while x < self._width_studs:
                 if not self._grid[x][plate_y]:
                     x += 1
                     continue
-                use_1x2 = (
-                    x % 2 == bond_offset
-                    and x + 1 < self._width_studs
+                # Stud distance from x to the next bond-aligned position.
+                # Using a 2-wide mid filler when gap == 1 would overshoot
+                # alignment and trap the row in a "mid forever" pattern past
+                # any opening whose right edge isn't aligned to the row's grid.
+                gap = (bond_offset - x) % self._medium_width
+
+                use_medium = (
+                    gap == 0
+                    and x + self._medium_width <= self._width_studs
+                    and all(
+                        self._grid[x + i][plate_y]
+                        for i in range(1, self._medium_width)
+                    )
+                )
+                use_mid = (
+                    not use_medium
+                    and gap != 1
+                    and self._mid_brick is not None
+                    and x + 2 <= self._width_studs
                     and self._grid[x + 1][plate_y]
                 )
-                part  = Brick1X2 if use_1x2 else Brick1X1
-                brick = Piece(part=part, colour=self._colour)
+                if use_medium:
+                    chosen_brick, step = self._medium_brick, self._medium_width
+                elif use_mid and self._mid_brick is not None:
+                    chosen_brick, step = self._mid_brick, 2
+                else:
+                    chosen_brick, step = self._small_brick, 1
+                brick = chosen_brick.copy()
                 brick.position = Vector(
                     studs_to_ldu(x),
                     plates_to_ldu(plate_y),
                     0,
                 )
                 self._children.append(brick)
-                x += 2 if use_1x2 else 1
+                x += step
 
         for piece, ins_studs_x, ins_brick_row in self._inserts:
             piece.position = Vector(

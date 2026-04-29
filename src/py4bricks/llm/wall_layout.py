@@ -31,7 +31,7 @@ Usage:
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from py4bricks.colour import Colour
@@ -80,6 +80,7 @@ class WallLayout(Group):
         colour: Colour,
         bonded: bool = False,
         name: str = "",
+        thickness: Literal["thin", "thick"] = "thin",
     ) -> None:
         super().__init__(name=name)
         self._height_bricks      = height_bricks
@@ -88,6 +89,7 @@ class WallLayout(Group):
         self._walls: dict[str, Wall] = {}
         self._turtle: tuple[int, int] = (0, 0)
         self._prev_orientation: str | None = None
+        self._thickness: Literal["thin", "thick"] = thickness
 
     # ------------------------------------------------------------------
     # Public API
@@ -129,6 +131,7 @@ class WallLayout(Group):
             colour=self._colour,
             bonded=self._bonded,
             name=name,
+            thickness=self._thickness,
         )
         wall.local_pos = Vector(x=studs_to_ldu(cx), y=0, z=studs_to_ldu(cz))
         wall.local_rot = orientation_to_rotation(wall_facing)

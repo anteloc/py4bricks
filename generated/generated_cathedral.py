@@ -116,6 +116,7 @@ def make_nave() -> Box:
         height_bricks=NAVE_HEIGHT,
         colour=Light_Bluish_Grey,
         bonded=True,
+        thickness="thick",
     )
 
     # South facade — entrance door + flanking windows + rose window high up
@@ -168,6 +169,7 @@ def make_transept_wing() -> Box:
         height_bricks=WING_H,
         colour=Light_Bluish_Grey,
         bonded=True,
+        thickness="thick",
     )
     # End windows on all four faces (the east/west walls face outward from the crossing)
     for wall in ("south", "north"):
