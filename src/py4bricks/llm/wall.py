@@ -17,7 +17,7 @@ Typical usage:
 from __future__ import annotations
 from pygments.unistring import Pi
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, cast, Literal
 
 if TYPE_CHECKING:
     from py4bricks.colour import Colour
@@ -156,6 +156,7 @@ class Wall(Group):
                 self._mid_brick:   Piece | None = None
                 self._medium_brick = Piece(part=Brick1X2, colour=colour)
                 self._medium_width = 2
+                self.thickness_studs = 1
             case "thick":
                 # _small_brick: rotated Brick1X2 ≡ Brick2X1 (1 stud wide, 2 studs deep)
                 self._small_brick  = CustomPiece(
@@ -165,7 +166,7 @@ class Wall(Group):
                 self._mid_brick    = Piece(part=Brick2X2, colour=colour)  # 2w x 2d
                 self._medium_brick = Piece(part=Brick2X4, colour=colour)  # 4w x 2d
                 self._medium_width = 4
-
+                self.thickness_studs = 2
         # grid[stud_x][plate_y]: True = solid, False = open
         self._grid: list[list[bool]] = [
             [True] * self._height_plates
@@ -269,67 +270,74 @@ class Wall(Group):
     # ------------------------------------------------------------------
 
     def _build(self) -> None:
-        """Rebuild _children from the grid and scheduled inserts.
-
-        All Pieces live directly in the Wall's local space with explicit
-        positions — no row sub-Groups required.
-        """
+        """Rebuild _children from the grid and scheduled inserts."""
         self._children.clear()
-
         for brick_row in range(self._height_bricks):
-            plate_y     = brick_row * PLATES_PER_BRICK_HEIGHT
-            # bond_offset shifts odd rows by half a medium brick so vertical joints
-            # never align — including to the right of openings, where a naive greedy
-            # scan would otherwise reset the phase.
-            bond_offset = (
-                self._medium_width // 2 if (self._bonded and brick_row % 2 == 1) else 0
-            )
+            self._children.extend(self._bricks_for_row(brick_row))
+        self._place_inserts()
 
-            x = 0
-            while x < self._width_studs:
-                if not self._grid[x][plate_y]:
-                    x += 1
-                    continue
-                # Stud distance from x to the next bond-aligned position.
-                # Using a 2-wide mid filler when gap == 1 would overshoot
-                # alignment and trap the row in a "mid forever" pattern past
-                # any opening whose right edge isn't aligned to the row's grid.
-                gap = (bond_offset - x) % self._medium_width
+    def _bricks_for_row(self, brick_row: int) -> list[Piece]:
+        """Return the brick Pieces that fill one horizontal row of the grid."""
+        plate_y = brick_row * PLATES_PER_BRICK_HEIGHT
+        # Odd rows shift by half a medium brick so vertical joints never align.
+        bond_offset = (
+            self._medium_width // 2 if (self._bonded and brick_row % 2 == 1) else 0
+        )
 
-                use_medium = (
-                    gap == 0
-                    and x + self._medium_width <= self._width_studs
-                    and all(
-                        self._grid[x + i][plate_y]
-                        for i in range(1, self._medium_width)
-                    )
-                )
-                use_mid = (
-                    not use_medium
-                    and gap != 1
-                    and self._mid_brick is not None
-                    and x + 2 <= self._width_studs
-                    and self._grid[x + 1][plate_y]
-                )
-                if use_medium:
-                    chosen_brick, step = self._medium_brick, self._medium_width
-                elif use_mid and self._mid_brick is not None:
-                    chosen_brick, step = self._mid_brick, 2
-                else:
-                    chosen_brick, step = self._small_brick, 1
-                brick = chosen_brick.copy()
-                brick.position = Vector(
-                    studs_to_ldu(x),
-                    plates_to_ldu(plate_y),
-                    0,
-                )
-                self._children.append(brick)
-                x += step
+        pieces: list[Piece] = []
+        x = 0
+        while x < self._width_studs:
+            if not self._grid[x][plate_y]:
+                x += 1
+                continue
+            brick, step = self._choose_brick(x, plate_y, bond_offset)
+            brick.position = Vector(studs_to_ldu(x), plates_to_ldu(plate_y), 0)
+            pieces.append(brick)
+            x += step
+        return pieces
 
-        for piece, ins_studs_x, ins_brick_row in self._inserts:
+    def _choose_brick(
+        self, x: int, plate_y: int, bond_offset: int,
+    ) -> tuple[Piece, int]:
+        """Return (brick_copy, step) for the solid cell at (x, plate_y).
+
+        studs_to_align: studs needed to reach the next bond-aligned position.
+        mid fires at studs_to_align ∈ {0, 2}; small fires for 1 and 3 so that
+        alignment-restoring smalls always land flush at opening edges.
+        """
+        studs_to_align = (bond_offset - x) % self._medium_width
+
+        fits_medium = (
+            studs_to_align == 0
+            and x + self._medium_width <= self._width_studs
+            and all(self._grid[x + i][plate_y] for i in range(1, self._medium_width))
+        )
+        # Use mid in exactly two situations:
+        #  studs_to_align == 0: aligned, but medium can't fit (opening or wall end
+        #                       cuts it short) — mid is the largest brick that fits.
+        #  studs_to_align == 2: mid is the exact filler to reach the next alignment.
+        # studs_to_align == 3 must fall to small first so the small lands flush
+        # against the opening edge, not 2 studs inside the run.
+        fits_mid = (
+            not fits_medium
+            and studs_to_align in (0, 2)
+            and self._mid_brick is not None
+            and x + 2 <= self._width_studs
+            and self._grid[x + 1][plate_y]
+        )
+
+        if fits_medium:
+            return self._medium_brick.copy(), self._medium_width
+        if fits_mid:
+            return cast("Piece", self._mid_brick).copy(), 2
+        return self._small_brick.copy(), 1
+
+    def _place_inserts(self) -> None:
+        """Position and append all scheduled insert pieces."""
+        for piece, studs_x, brick_row in self._inserts:
             piece.position = Vector(
-                studs_to_ldu(ins_studs_x),
-                plates_to_ldu(ins_brick_row * PLATES_PER_BRICK_HEIGHT),
-                0,
+                studs_to_ldu(studs_x),
+                plates_to_ldu(brick_row * PLATES_PER_BRICK_HEIGHT),
+                plates_to_ldu(self.thickness_studs - 1),
             )
             self._children.append(piece)
