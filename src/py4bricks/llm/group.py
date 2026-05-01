@@ -23,6 +23,7 @@ converts to internal Vector/Matrix.
 """
 from __future__ import annotations
 
+import copy
 from dataclasses import InitVar, dataclass, field
 from itertools import product
 from typing import TYPE_CHECKING
@@ -178,6 +179,10 @@ class Group:
         """Add a Piece or sub-Group as-is (no placement change). Returns self."""
         self._register(item)
         return self
+
+    def copy(self) -> Group:
+        """Return a deep copy of this Group and all its descendants."""
+        return copy.deepcopy(self)
 
     def _adopt(self, piece: Piece) -> None:
         """Duck-type hook for Piece.__init__() and Piece.attach().

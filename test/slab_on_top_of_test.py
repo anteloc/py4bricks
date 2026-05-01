@@ -24,6 +24,7 @@ from py4bricks.library.colours import Dark_Tan, Light_Grey, Tan
 from py4bricks.llm import Scene
 from py4bricks.llm.box import Box
 from py4bricks.llm.slab import Slab
+from py4bricks.debug import debug_add_origin_marker
 
 scene = Scene("Slab on-top-of test")
 

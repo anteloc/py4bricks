@@ -1,3 +1,4 @@
+from typing import cast
 from dataclasses import dataclass
 
 from py4bricks.colour import Colour
@@ -6,15 +7,31 @@ from py4bricks.geometry import (
     PLATES_PER_BRICK_HEIGHT,
     Identity,
     YAxis,
-    studs_to_ldu,
+    studs_to_ldu, plates_to_ldu,
 )
 from py4bricks.library.colours import Red
 from py4bricks.library.parts.bricks import Brick1X1
-from py4bricks.library.parts.slopes import SlopeBrick452X1, SlopeBrick452X2, SlopeBrick452X3, SlopeBrick452X1Double
-from py4bricks.library.parts.tiles import Tile1X3
+from py4bricks.library.parts.slopes import (
+    SlopeBrick452X1,
+    SlopeBrick452X1Double,
+    SlopeBrick452X2,
+    SlopeBrick452X2Double,
+    SlopeBrick452X3,
+    SlopeBrick452X3Double,
+
+)
+from py4bricks.library.parts.tiles import Tile1X3, Tile2X3
 from py4bricks.llm.group import Group
 from py4bricks.llm.types import Facing, Orientation
 from py4bricks.pieces import CustomPiece, Piece
+from py4bricks.debug import debug_colour_by_orientation
+
+debug = True
+
+def slope_colour(requested_colour: Colour, orientation: Orientation) -> Colour:
+    if debug:
+        return debug_colour_by_orientation(cast(str, orientation))
+    return requested_colour
 
 
 @dataclass(frozen=True)
@@ -104,9 +121,18 @@ class Roof(Group):
         super().__init__(name=name)
         self._init_pieces(colour)
         geo = _compute_geometry(width_studs, length_studs, ridge_running)
-        self.top_piece = (
-            self.top_double_slope if geo.even_slope_depth else self.top_tile
-        )
+        if geo.even_slope_depth:
+            self._top_for_slope = {
+                self.slope_piece_small:  self.top_double_slope_small,
+                self.slope_piece_medium: self.top_double_slope_medium,
+                self.slope_piece_large:  self.top_double_slope_large,
+            }
+        else:
+            self._top_for_slope = {
+                self.slope_piece_small:  self.top_tile_small,
+                self.slope_piece_medium: self.top_tile_medium,
+                self.slope_piece_large:  self.top_tile_large,
+            }
         left_facing, right_facing = _slope_facings(ridge_running)
         left_slope  = self._build_slope(geo, left_facing)
         right_slope = self._build_slope(geo, right_facing, with_top=True)
@@ -134,17 +160,53 @@ class Roof(Group):
             override_render_pos_offset=lambda p: {"z": p.ldu_z / 2},
         )
 
-        self.top_double_slope = CustomPiece(
+        self.top_double_slope_small = CustomPiece(
             part=SlopeBrick452X1Double,
             colour=colour,
-            override_render_pos_offset=lambda p: {"y": p.ldu_y},
+            override_render_pos_offset=lambda p: {"y": p.ldu_y - plates_to_ldu(2)},
         )
-        self.top_tile = CustomPiece(
+        
+        self.top_double_slope_medium = CustomPiece(
+            part=SlopeBrick452X2Double,
+            colour=colour,
+            override_render_pos_offset=lambda p: {"y": p.ldu_y - plates_to_ldu(2)},
+        )
+
+        self.top_double_slope_large = CustomPiece(
+            part=SlopeBrick452X3Double,
+            colour=colour,
+            override_render_pos_offset=lambda p: {"y": p.ldu_y - plates_to_ldu(2)},
+        )
+
+        self.top_tile_small = CustomPiece(
             part=Tile1X3,
             colour=colour,
             transform_by_rotating=Identity().rotate(-90, YAxis),
             override_render_pos_offset=lambda p: {"y": p.ldu_y},
         )
+
+        self.top_tile_medium = CustomPiece(
+            part=Tile2X3,
+            colour=colour,
+            transform_by_rotating=Identity().rotate(-90, YAxis),
+            override_render_pos_offset=lambda p: {"y": p.ldu_y},
+        )
+
+        # composite top piece, emulating a non-existing Tile3X3
+        self.top_tile_large = Group()
+
+        top_tile_large_1st_segment = self.top_tile_medium.copy()
+
+        self.top_tile_large.place_at(
+            top_tile_large_1st_segment,
+            studs_x=0, plates_y=0, studs_z=0,
+        )
+
+        self.top_tile_large.place_at(
+            self.top_tile_small.copy(),
+            studs_x=-self.top_double_slope_medium.studs_x, plates_y=0, studs_z=0,
+        )
+
         self.gable_piece = Piece(part=Brick1X1, colour=colour)
 
     def _place_slopes(
@@ -236,11 +298,12 @@ class Roof(Group):
         col_back  = 1 if facing in ("east",  "west")  else 0  # Z for E/W slopes
 
         for piece_tmpl, start_stud in tiles:
+            piece_tmpl.colour = slope_colour(piece_tmpl.colour, facing)
             slope_1st = piece_tmpl.copy()
             group.place_at(
                 slope_1st,
-                studs_x=start_stud * col_right,
-                studs_z=start_stud * col_back,
+                studs_x=(start_stud * col_right),
+                studs_z=(start_stud * col_back),
                 facing=facing,
             )
 
@@ -257,9 +320,9 @@ class Roof(Group):
 
             if with_top:
                 group.place_on_top_of(
-                    self.top_piece.copy(), prev_slope,
+                    self._top_for_slope[piece_tmpl].copy(), prev_slope,
                     right_studs=right_studs,
-                    back_studs=back_studs,
+                    back_studs=back_studs,  # align top piece with slope pieces
                     facing=facing,
                 )
 
