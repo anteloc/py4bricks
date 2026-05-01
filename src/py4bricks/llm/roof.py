@@ -73,6 +73,37 @@ def _slope_facings(ridge_running: Orientation) -> tuple[Facing, Facing]:
     return ("east", "west") if ridge_running == "north-south" else ("north", "south")
 
 
+# Per-row offset toward the peak, keyed by slope facing.
+# (right_studs, back_studs) — exactly one axis is non-zero.
+_PEAK_OFFSET: dict[Facing, tuple[int, int]] = {
+    "north": ( 0, +1),
+    "south": ( 0, -1),
+    "east":  (+1,  0),
+    "west":  (-1,  0),
+}
+
+
+def _row_along_ridge(
+    items: list[tuple[Piece | Group, int]], facing: Facing,
+) -> Group:
+    """One gable row: pieces laid along the ridge axis.
+
+    Ridge runs along +X for N/S slopes, along +Z for E/W slopes.
+    Each piece is rotated to `facing`; the row Group itself stays unrotated,
+    so when rows are stacked their rotations don't compound.
+    """
+    row = Group()
+    ridge_along_x = facing in ("north", "south")
+    for piece, start_stud in items:
+        row.place_at(
+            piece,
+            studs_x=start_stud if ridge_along_x else 0,
+            studs_z=0 if ridge_along_x else start_stud,
+            facing=facing,
+        )
+    return row
+
+
 def _tile_ridge(
     ridge_studs: int,
     large: CustomPiece,   # 3 studs wide
@@ -279,51 +310,45 @@ class Roof(Group):
         facing: Facing,
         with_top: bool = False,
     ) -> Group:
-        group = Group()
-
+        """Stack of gable rows: each row runs along the ridge; each row above
+        is offset one stud toward the peak."""
         tiles = _tile_ridge(
             geo.ridge_studs,
             self.slope_piece_large,
             self.slope_piece_medium,
             self.slope_piece_small,
         )
+        # Debug-colour slope templates once for this facing.
+        for tmpl, _ in tiles:
+            tmpl.colour = slope_colour(tmpl.colour, facing)
 
-        # Per-row step in the slope direction (away from the wall).
-        sign        = 1 if facing in ("north", "east") else -1
-        back_studs  = sign if facing in ("north", "south") else 0
-        right_studs = sign if facing in ("east",  "west")  else 0
+        right_studs, back_studs = _PEAK_OFFSET[facing]
 
-        # Per-column step along the ridge.
-        col_right = 1 if facing in ("north", "south") else 0  # X for N/S slopes
-        col_back  = 1 if facing in ("east",  "west")  else 0  # Z for E/W slopes
+        slope = Group()
 
-        for piece_tmpl, start_stud in tiles:
-            piece_tmpl.colour = slope_colour(piece_tmpl.colour, facing)
-            slope_1st = piece_tmpl.copy()
-            group.place_at(
-                slope_1st,
-                studs_x=(start_stud * col_right),
-                studs_z=(start_stud * col_back),
-                facing=facing,
+        # Bottom row sits at the slope's origin.
+        bottom = _row_along_ridge(
+            [(tmpl.copy(), start) for tmpl, start in tiles], facing,
+        )
+        slope.place_at(bottom)
+
+        # Each subsequent row sits on top of the previous, offset toward the peak.
+        prev = bottom
+        for _ in range(1, geo.num_rows):
+            row = prev.copy()
+            slope.place_on_top_of(
+                row, prev, right_studs=right_studs, back_studs=back_studs,
+            )
+            prev = row
+
+        # Cap the peak with a final row of top pieces.
+        if with_top:
+            top = _row_along_ridge(
+                [(self._top_for_slope[tmpl].copy(), start) for tmpl, start in tiles],
+                facing,
+            )
+            slope.place_on_top_of(
+                top, prev, right_studs=right_studs, back_studs=back_studs,
             )
 
-            prev_slope = slope_1st
-            for _ in range(1, geo.num_rows):
-                slope = piece_tmpl.copy()
-                group.place_on_top_of(
-                    slope, prev_slope,
-                    right_studs=right_studs,
-                    back_studs=back_studs,
-                    facing=facing,
-                )
-                prev_slope = slope
-
-            if with_top:
-                group.place_on_top_of(
-                    self._top_for_slope[piece_tmpl].copy(), prev_slope,
-                    right_studs=right_studs,
-                    back_studs=back_studs,  # align top piece with slope pieces
-                    facing=facing,
-                )
-
-        return group
+        return slope
