@@ -10,7 +10,7 @@ from py4bricks.geometry import (
 )
 from py4bricks.library.colours import Red
 from py4bricks.library.parts.bricks import Brick1X1
-from py4bricks.library.parts.slopes import SlopeBrick452X1, SlopeBrick452X1Double
+from py4bricks.library.parts.slopes import SlopeBrick452X1, SlopeBrick452X2, SlopeBrick452X3, SlopeBrick452X1Double
 from py4bricks.library.parts.tiles import Tile1X3
 from py4bricks.llm.group import Group
 from py4bricks.llm.types import Facing, Orientation
@@ -22,6 +22,7 @@ class _RoofGeometry:
     """Derived roof dimensions, computed once from width/length/ridge_running."""
 
     ridge_ldu:        float  # length of the ridge in LDU
+    ridge_studs:      int    # ridge length in studs (drives tiling)
     perp_ldu:         float  # perpendicular span (wall to wall) in LDU
     slope_depth_ldu:  float  # half of perp_ldu — each slope covers this
     num_rows:         int    # slope rows, also gable height in rows
@@ -41,6 +42,7 @@ def _compute_geometry(
 
     return _RoofGeometry(
         ridge_ldu        = ridge_ldu,
+        ridge_studs      = ridge_studs,
         perp_ldu         = perp_ldu,
         slope_depth_ldu  = slope_depth_ldu,
         num_rows         = int(slope_depth_ldu / LDU_PER_STUD),
@@ -52,6 +54,40 @@ def _compute_geometry(
 def _slope_facings(ridge_running: Orientation) -> tuple[Facing, Facing]:
     """Return (left_facing, right_facing) for the two roof slopes."""
     return ("east", "west") if ridge_running == "north-south" else ("north", "south")
+
+
+def _tile_ridge(
+    ridge_studs: int,
+    large: CustomPiece,   # 3 studs wide
+    medium: CustomPiece,  # 2 studs wide
+    small: CustomPiece,   # 1 stud wide
+) -> list[tuple[CustomPiece, int]]:
+    """Tile ridge_studs with the fewest pieces, largest first.
+
+    Avoids 1-wide pieces when possible: when N % 3 == 1 and N >= 4,
+    uses one fewer large and two medium instead of one small.
+
+      N=4  →  medium + medium       (not large + small)
+      N=7  →  large + medium + medium
+      N=11 →  large + large + large + medium + medium
+    """
+    n3, r = divmod(ridge_studs, 3)
+
+    if r == 1 and n3 > 0:
+        widths = [3] * (n3 - 1) + [2, 2]
+    elif r == 2:
+        widths = [3] * n3 + [2]
+    elif r == 0:
+        widths = [3] * n3
+    else:                           # ridge_studs == 1
+        widths = [1]
+
+    piece_for_width = {3: large, 2: medium, 1: small}
+    tiles, pos = [], 0
+    for w in widths:
+        tiles.append((piece_for_width[w], pos))
+        pos += w
+    return tiles
 
 
 class Roof(Group):
@@ -80,11 +116,24 @@ class Roof(Group):
         self._place_gables(geo, ridge_running, width_studs, length_studs)
 
     def _init_pieces(self, colour: Colour) -> None:
-        self.slope_piece = CustomPiece(
+        self.slope_piece_small = CustomPiece(
             part=SlopeBrick452X1,
             colour=colour,
             override_render_pos_offset=lambda p: {"z": p.ldu_z / 2},
         )
+
+        self.slope_piece_medium = CustomPiece(
+            part=SlopeBrick452X2,
+            colour=colour,
+            override_render_pos_offset=lambda p: {"z": p.ldu_z / 2},
+        )
+
+        self.slope_piece_large = CustomPiece(
+            part=SlopeBrick452X3,
+            colour=colour,
+            override_render_pos_offset=lambda p: {"z": p.ldu_z / 2},
+        )
+
         self.top_double_slope = CustomPiece(
             part=SlopeBrick452X1Double,
             colour=colour,
@@ -170,7 +219,12 @@ class Roof(Group):
     ) -> Group:
         group = Group()
 
-        slopes_per_row = int(geo.ridge_ldu / self.slope_piece.ldu_x)
+        tiles = _tile_ridge(
+            geo.ridge_studs,
+            self.slope_piece_large,
+            self.slope_piece_medium,
+            self.slope_piece_small,
+        )
 
         # Per-row step in the slope direction (away from the wall).
         sign        = 1 if facing in ("north", "east") else -1
@@ -181,18 +235,18 @@ class Roof(Group):
         col_right = 1 if facing in ("north", "south") else 0  # X for N/S slopes
         col_back  = 1 if facing in ("east",  "west")  else 0  # Z for E/W slopes
 
-        for col in range(slopes_per_row):
-            slope_1st = self.slope_piece.copy()
+        for piece_tmpl, start_stud in tiles:
+            slope_1st = piece_tmpl.copy()
             group.place_at(
                 slope_1st,
-                studs_x=col * col_right,
-                studs_z=col * col_back,
+                studs_x=start_stud * col_right,
+                studs_z=start_stud * col_back,
                 facing=facing,
             )
 
             prev_slope = slope_1st
             for _ in range(1, geo.num_rows):
-                slope = self.slope_piece.copy()
+                slope = piece_tmpl.copy()
                 group.place_on_top_of(
                     slope, prev_slope,
                     right_studs=right_studs,
