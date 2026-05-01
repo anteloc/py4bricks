@@ -3,6 +3,7 @@ from py4bricks.library.colours import Blue as North_Blue
 from py4bricks.library.colours import Orange as West_Orange
 from py4bricks.library.colours import Red as South_Red
 from py4bricks.library.colours import Yellow as East_Yellow
+from py4bricks.library.colours import Dark_Azure as Debug_Dark_Azure
 from py4bricks.llm.group import Group
 from py4bricks.pieces import Piece
 from py4bricks.colour import Colour
@@ -22,7 +23,7 @@ def debug_colour_by_orientation(orientation: Literal["north", "south", "east", "
         case _:
             raise ValueError(f"Invalid orientation: {orientation}")
 
-def debug_add_origin_marker(parent_group: Group, piece_or_group: Piece | Group, colour: Colour) -> None:
-    origin_marker = Piece(part=Brick1X1, colour=colour)
+def debug_add_origin_marker(parent_group: Group, piece_or_group: Piece | Group) -> None:
+    origin_marker = Piece(part=Brick1X1, colour=Debug_Dark_Azure)
     origin_marker.position = piece_or_group.position
     parent_group.add(origin_marker)

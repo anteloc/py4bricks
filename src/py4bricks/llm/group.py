@@ -29,10 +29,14 @@ from itertools import product
 from typing import TYPE_CHECKING
 
 from py4bricks.geometry import (
+    Axis,
     LDU_PER_STUD_HEIGHT,
     Identity,
     Matrix,
     Vector,
+    XAxis,
+    YAxis,
+    ZAxis,
     ldu_to_plates,
     ldu_to_studs,
     orientation_to_rotation,
@@ -51,6 +55,22 @@ _POSITION_TOLERANCE: float = 0.5
 
 _ORIGIN:   Vector = Vector(0, 0, 0)
 _IDENTITY: Matrix = Identity()
+
+# Reflection matrices keyed by the normal axis of the mirror plane.
+_REFLECTION: dict[type[Axis], Matrix] = {
+    XAxis: Matrix([[-1, 0, 0], [0, 1, 0], [0, 0, 1]]),
+    YAxis: Matrix([[1, 0, 0], [0, -1, 0], [0, 0, 1]]),
+    ZAxis: Matrix([[1, 0, 0], [0, 1, 0], [0, 0, -1]]),
+}
+
+
+def _reflect_children(children: list, R: Matrix) -> None:
+    """Recursively apply reflection matrix R to all positions and rotations in the subtree."""
+    for child in children:
+        child.position = R * child.position
+        child.rotation = R * child.rotation * R
+        if isinstance(child, Group):
+            _reflect_children(child.children, R)
 
 
 @dataclass
@@ -183,6 +203,20 @@ class Group:
     def copy(self) -> Group:
         """Return a deep copy of this Group and all its descendants."""
         return copy.deepcopy(self)
+
+    def mirror_along_plane(self, plane: tuple[type[Axis], type[Axis]]) -> Group:
+        """Return a mirrored deep copy of this Group.
+
+        The mirror plane is defined by two axes, e.g. (XAxis, ZAxis) mirrors
+        across the floor (negates Y), (YAxis, ZAxis) mirrors left-to-right
+        (negates X).  Positions and rotations of every piece and sub-group are
+        reflected correctly, preserving valid rotation matrices.
+        """
+        normal = ({XAxis, YAxis, ZAxis} - set(plane)).pop()
+        R = _REFLECTION[normal]
+        mirrored = self.copy()
+        _reflect_children(mirrored.children, R)
+        return mirrored
 
     def _adopt(self, piece: Piece) -> None:
         """Duck-type hook for Piece.__init__() and Piece.attach().

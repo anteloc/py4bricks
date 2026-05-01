@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import cast
 from dataclasses import dataclass
 
@@ -24,7 +26,7 @@ from py4bricks.library.parts.tiles import Tile1X3, Tile2X3
 from py4bricks.llm.group import Group
 from py4bricks.llm.types import Facing, Orientation
 from py4bricks.pieces import CustomPiece, Piece
-from py4bricks.debug import debug_colour_by_orientation
+from py4bricks.debug import debug_colour_by_orientation, debug_add_origin_marker
 
 debug = True
 
@@ -84,7 +86,8 @@ _PEAK_OFFSET: dict[Facing, tuple[int, int]] = {
 
 
 def _row_along_ridge(
-    items: list[tuple[Piece | Group, int]], facing: Facing,
+    # items: list[tuple[Piece | Group, int]], facing: Facing,
+    roof: Roof, geo: _RoofGeometry, facing: Facing, top: bool = False,
 ) -> Group:
     """One gable row: pieces laid along the ridge axis.
 
@@ -92,15 +95,36 @@ def _row_along_ridge(
     Each piece is rotated to `facing`; the row Group itself stays unrotated,
     so when rows are stacked their rotations don't compound.
     """
+    tiles = _tile_ridge(
+            geo.ridge_studs,
+            roof.slope_piece_large if not top else roof._top_for_slope[roof.slope_piece_large],
+            roof.slope_piece_medium if not top else roof._top_for_slope[roof.slope_piece_medium],
+            roof.slope_piece_small if not top else roof._top_for_slope[roof.slope_piece_small],
+        )
+
+
     row = Group()
-    ridge_along_x = facing in ("north", "south")
-    for piece, start_stud in items:
+    first = tiles[0][0].copy()
+    row.place_at(
+        first,
+        studs_x=0, plates_y=0, studs_z=0,
+        facing=facing,
+    )
+
+    prev = first
+    curr_z = first.studs_z
+
+    for piece, _ in tiles[1:]:
         row.place_at(
-            piece,
-            studs_x=start_stud if ridge_along_x else 0,
-            studs_z=0 if ridge_along_x else start_stud,
+            piece.copy(),
+            studs_x=0,
+            studs_z=curr_z,
             facing=facing,
         )
+
+        prev = piece
+        curr_z += piece.studs_z if facing in ("north", "south") else piece.studs_x
+
     return row
 
 
@@ -312,24 +336,13 @@ class Roof(Group):
     ) -> Group:
         """Stack of gable rows: each row runs along the ridge; each row above
         is offset one stud toward the peak."""
-        tiles = _tile_ridge(
-            geo.ridge_studs,
-            self.slope_piece_large,
-            self.slope_piece_medium,
-            self.slope_piece_small,
-        )
-        # Debug-colour slope templates once for this facing.
-        for tmpl, _ in tiles:
-            tmpl.colour = slope_colour(tmpl.colour, facing)
 
         right_studs, back_studs = _PEAK_OFFSET[facing]
 
         slope = Group()
 
         # Bottom row sits at the slope's origin.
-        bottom = _row_along_ridge(
-            [(tmpl.copy(), start) for tmpl, start in tiles], facing,
-        )
+        bottom = _row_along_ridge(self, geo, facing)
         slope.place_at(bottom)
 
         # Each subsequent row sits on top of the previous, offset toward the peak.
@@ -342,13 +355,15 @@ class Roof(Group):
             prev = row
 
         # Cap the peak with a final row of top pieces.
-        if with_top:
-            top = _row_along_ridge(
-                [(self._top_for_slope[tmpl].copy(), start) for tmpl, start in tiles],
-                facing,
-            )
-            slope.place_on_top_of(
-                top, prev, right_studs=right_studs, back_studs=back_studs,
-            )
+        # if with_top:
+        #     top = _row_along_ridge(
+        #         roof=self, geo=geo, facing=facing, top=True,
+        #     )
+        #     slope.place_on_top_of(
+        #         top, prev, right_studs=right_studs, back_studs=back_studs,
+        #     )
+
+        if debug:
+            debug_add_origin_marker(slope, bottom)
 
         return slope
