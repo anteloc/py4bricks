@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 
 from py4bricks.colour import Colour
 from py4bricks.geometry import (
@@ -5,7 +6,6 @@ from py4bricks.geometry import (
     PLATES_PER_BRICK_HEIGHT,
     Identity,
     YAxis,
-    ldu_to_studs,
     studs_to_ldu,
 )
 from py4bricks.library.colours import Red
@@ -17,7 +17,46 @@ from py4bricks.llm.types import Facing, Orientation
 from py4bricks.pieces import CustomPiece, Piece
 
 
+@dataclass(frozen=True)
+class _RoofGeometry:
+    """Derived roof dimensions, computed once from width/length/ridge_running."""
+
+    ridge_ldu:        float  # length of the ridge in LDU
+    perp_ldu:         float  # perpendicular span (wall to wall) in LDU
+    slope_depth_ldu:  float  # half of perp_ldu — each slope covers this
+    num_rows:         int    # slope rows, also gable height in rows
+    gable_base_studs: int    # total gable base width in studs
+    even_slope_depth: bool   # True → double-slope cap; False → tile cap
+
+
+def _compute_geometry(
+    width_studs: int, length_studs: int, ridge_running: Orientation,
+) -> _RoofGeometry:
+    ridge_studs = width_studs if ridge_running == "east-west" else length_studs
+    perp_studs  = length_studs if ridge_running == "east-west" else width_studs
+
+    ridge_ldu       = studs_to_ldu(ridge_studs)
+    perp_ldu        = studs_to_ldu(perp_studs)
+    slope_depth_ldu = perp_ldu / 2
+
+    return _RoofGeometry(
+        ridge_ldu        = ridge_ldu,
+        perp_ldu         = perp_ldu,
+        slope_depth_ldu  = slope_depth_ldu,
+        num_rows         = int(slope_depth_ldu / LDU_PER_STUD),
+        gable_base_studs = int(perp_ldu / LDU_PER_STUD) + 1,
+        even_slope_depth = perp_studs % 2 == 0,
+    )
+
+
+def _slope_facings(ridge_running: Orientation) -> tuple[Facing, Facing]:
+    """Return (left_facing, right_facing) for the two roof slopes."""
+    return ("east", "west") if ridge_running == "north-south" else ("north", "south")
+
+
 class Roof(Group):
+    """A gabled roof assembled from slope bricks and triangular gable walls."""
+
     def __init__(
         self,
         name: str,
@@ -27,71 +66,50 @@ class Roof(Group):
         colour: Colour = Red,
     ) -> None:
         super().__init__(name=name)
+        self._init_pieces(colour)
+        geo = _compute_geometry(width_studs, length_studs, ridge_running)
+        self.top_piece = (
+            self.top_double_slope if geo.even_slope_depth else self.top_tile
+        )
+        left_facing, right_facing = _slope_facings(ridge_running)
+        left_slope  = self._build_slope(geo, left_facing)
+        right_slope = self._build_slope(geo, right_facing, with_top=True)
+        self._place_slopes(
+            left_slope, right_slope, ridge_running, width_studs, length_studs,
+        )
+        self._place_gables(geo, ridge_running, width_studs, length_studs)
 
-        self.slope_piece = CustomPiece(part=SlopeBrick452X1,
-                                        colour=colour,
-                                        override_render_pos_offset=lambda p: {"z": p.ldu_z / 2})
-
-        self.top_double_slope = CustomPiece(part=SlopeBrick452X1Double,
-                                            colour=colour,
-                                            override_render_pos_offset=lambda p: {"y": p.ldu_y})
-
-        self.top_tile = CustomPiece(part=Tile1X3,
-                                    colour=colour,
-                                    transform_by_rotating=Identity().rotate(-90, YAxis),
-                                    override_render_pos_offset=lambda p: {"y": p.ldu_y})
-
+    def _init_pieces(self, colour: Colour) -> None:
+        self.slope_piece = CustomPiece(
+            part=SlopeBrick452X1,
+            colour=colour,
+            override_render_pos_offset=lambda p: {"z": p.ldu_z / 2},
+        )
+        self.top_double_slope = CustomPiece(
+            part=SlopeBrick452X1Double,
+            colour=colour,
+            override_render_pos_offset=lambda p: {"y": p.ldu_y},
+        )
+        self.top_tile = CustomPiece(
+            part=Tile1X3,
+            colour=colour,
+            transform_by_rotating=Identity().rotate(-90, YAxis),
+            override_render_pos_offset=lambda p: {"y": p.ldu_y},
+        )
         self.gable_piece = Piece(part=Brick1X1, colour=colour)
 
-        left_slope_facing, right_slope_facing = (
-            ("east", "west")
-            if ridge_running == "north-south"
-            else ("north", "south")
-        )
-
-        # The ridge runs along one axis; slopes span the perpendicular axis.
-        # Each slope covers half that perpendicular span.
-        ridge_studs     = width_studs if ridge_running == "east-west" else length_studs
-        perp_studs     = length_studs if ridge_running == "east-west" else width_studs
-        
-        ridge_ldu       = studs_to_ldu(ridge_studs)
-        perp_ldu        = studs_to_ldu(perp_studs)
-
-        slope_depth_ldu = perp_ldu / 2
-
-        even_slope_depth = perp_studs % 2 == 0
-
-        self.top_piece = (
-            self.top_double_slope
-            if even_slope_depth
-            else self.top_tile
-        )
-
-        # self.top_piece_facing =
-
-        # Row count shared by slopes and gables: both rise the same number of rows.
-        num_rows        = int(slope_depth_ldu / LDU_PER_STUD)
-
-        left_slope = self._build_slope(
-            slope_depth_ldu=slope_depth_ldu,
-            ridge_ldu=ridge_ldu,
-            facing=left_slope_facing,
-            colour=colour,
-        )
-
-        right_slope = self._build_slope(
-            slope_depth_ldu=slope_depth_ldu,
-            ridge_ldu=ridge_ldu,
-            facing=right_slope_facing,
-            colour=colour,
-            with_top=True,
-        )
-
+    def _place_slopes(
+        self,
+        left_slope: Group,
+        right_slope: Group,
+        ridge_running: Orientation,
+        width_studs: int,
+        length_studs: int,
+    ) -> None:
         # Slope groups are not rotated at placement time — the bricks inside
         # already carry the correct orientation.  Rotating the group too would
         # compose rotations and flip the bricks.
-        # Each slope sits 1 stud outside the box on its own exterior side, so
-        # the left/right placements are symmetric about the ridge.
+        # Each slope sits 1 stud outside the box on its own exterior side.
         if ridge_running == "east-west":
             self.place_at(left_slope,  studs_x=0, plates_y=0, studs_z=-1)
             self.place_at(right_slope, studs_x=0, plates_y=0, studs_z=length_studs)
@@ -99,42 +117,40 @@ class Roof(Group):
             self.place_at(left_slope,  studs_x=-1,          plates_y=0, studs_z=0)
             self.place_at(right_slope, studs_x=width_studs, plates_y=0, studs_z=0)
 
-        # Triangular gable walls close off the two open ends of the ridge.
-        # Base width = perp span + 1: slopes span from -1 to perp_studs on their
-        # respective overhangs, i.e. (perp_studs + 1) studs total.
-        # Height = num_rows, so the gable rises to the same level as the slopes.
-        gable_base_studs = int(perp_ldu / LDU_PER_STUD) + 1
-
+    def _place_gables(
+        self,
+        geo: _RoofGeometry,
+        ridge_running: Orientation,
+        width_studs: int,
+        length_studs: int,
+    ) -> None:
         if ridge_running == "east-west":
             # Gables at west/east ends; rotate so the locally-X base extends along Z.
             self.place_at(
-                self._build_gable(gable_base_studs, num_rows, colour),
+                self._build_gable(geo),
                 studs_x=0, plates_y=0, studs_z=0, facing="west",
             )
             self.place_at(
-                self._build_gable(gable_base_studs, num_rows, colour),
+                self._build_gable(geo),
                 studs_x=width_studs - 1, plates_y=0, studs_z=0, facing="west",
             )
         else:
             # Gables at south/north ends; base already along X, no rotation needed.
+            self.place_at(self._build_gable(geo), studs_x=0, plates_y=0, studs_z=0)
             self.place_at(
-                self._build_gable(gable_base_studs, num_rows, colour),
-                studs_x=0, plates_y=0, studs_z=0,
-            )
-            self.place_at(
-                self._build_gable(gable_base_studs, num_rows, colour),
+                self._build_gable(geo),
                 studs_x=0, plates_y=0, studs_z=length_studs - 1,
             )
 
-    def _build_gable(self, base_studs: int, num_rows: int, colour: Colour) -> Group:
+    def _build_gable(self, geo: _RoofGeometry) -> Group:
         """Staircase triangle of 1x1 bricks; base along local +X, growing upward.
 
-        Row i: (base_studs - 2*i) bricks, inset by i studs on each side,
+        Row i: (gable_base_studs - 2*i) bricks, inset by i studs on each side,
         stacked 3 plates (= 1 brick body) above the row below.
         """
         group = Group()
-        for row in range(num_rows):
-            row_width = (base_studs - 2 * row) - 2
+        for row in range(geo.num_rows):
+            row_width = (geo.gable_base_studs - 2 * row) - 2
             if row_width <= 0:
                 break
             for col in range(1, row_width):
@@ -148,36 +164,25 @@ class Roof(Group):
 
     def _build_slope(
         self,
-        slope_depth_ldu: float,  # horizontal span from wall to ridge
-        ridge_ldu: float,        # length of the ridge (bricks tile along this axis)
+        geo: _RoofGeometry,
         facing: Facing,
-        colour: Colour,
         with_top: bool = False,
     ) -> Group:
-
         group = Group()
 
-        slope_piece = self.slope_piece.copy()
-        slope_piece.colour = colour
+        slopes_per_row = int(geo.ridge_ldu / self.slope_piece.ldu_x)
 
-        # Each row advances 1 stud horizontally; first brick contributes 2 studs
-        num_rows = int(slope_depth_ldu / LDU_PER_STUD)
-        # iterate columns to cover the full ridge length.
-        slopes_per_row = int(ridge_ldu / slope_piece.ldu_x)
+        # Per-row step in the slope direction (away from the wall).
+        sign        = 1 if facing in ("north", "east") else -1
+        back_studs  = sign if facing in ("north", "south") else 0
+        right_studs = sign if facing in ("east",  "west")  else 0
 
-        # per-row offset in the slope direction (into the slope, away from the wall)
-        sign       = 1 if facing in ("north", "east") else -1
-        back_studs = sign * 1 if facing in ("north", "south") else 0
-        right_studs = sign * 1 if facing in ("east", "west") else 0
-
-        # per-column offset along the ridge
+        # Per-column step along the ridge.
         col_right = 1 if facing in ("north", "south") else 0  # X for N/S slopes
         col_back  = 1 if facing in ("east",  "west")  else 0  # Z for E/W slopes
 
-        # top = self.top_piece["even" if num_rows % 2 else "odd"]
-
         for col in range(slopes_per_row):
-            slope_1st = slope_piece.copy()
+            slope_1st = self.slope_piece.copy()
             group.place_at(
                 slope_1st,
                 studs_x=col * col_right,
@@ -186,11 +191,10 @@ class Roof(Group):
             )
 
             prev_slope = slope_1st
-            for _ in range(1, num_rows):
-                slope = slope_piece.copy()
+            for _ in range(1, geo.num_rows):
+                slope = self.slope_piece.copy()
                 group.place_on_top_of(
-                    slope,
-                    prev_slope,
+                    slope, prev_slope,
                     right_studs=right_studs,
                     back_studs=back_studs,
                     facing=facing,
@@ -199,8 +203,7 @@ class Roof(Group):
 
             if with_top:
                 group.place_on_top_of(
-                    self.top_piece.copy(),
-                    prev_slope,
+                    self.top_piece.copy(), prev_slope,
                     right_studs=right_studs,
                     back_studs=back_studs,
                     facing=facing,
