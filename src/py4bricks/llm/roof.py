@@ -86,13 +86,7 @@ _PEAK_OFFSET: dict[Facing, tuple[int, int]] = {
 
 
 def _row_along_ridge(roof: Roof, geo: _RoofGeometry, facing: Facing) -> Group:
-    """One row of slope pieces tiled along the ridge axis.
-
-    For north/south facing (east-west ridge): pieces tile along X.
-    For east/west facing (north-south ridge): pieces tile along Z.
-    piece.studs_x is always the ridge-aligned width (1/2/3 studs), regardless
-    of facing — after a 90° Y rotation the X extent maps to Z in world space.
-    """
+    """One row of slope pieces tiled along the ridge axis."""
     tiles = _tile_ridge(
         geo.ridge_studs,
         roof.slope_piece_large,
@@ -101,16 +95,33 @@ def _row_along_ridge(roof: Roof, geo: _RoofGeometry, facing: Facing) -> Group:
     )
 
     row = Group()
-    ridge_pos = 0
-    for piece, _ in tiles:
+
+    for piece, ridge_pos in tiles:
+        pos = ridge_pos
+
+        # For these facings, local +X runs opposite to the positive ridge axis.
+        # place_at uses stud positions, so use the far stud, not the far edge.
+        if facing in ("east", "south"):
+            pos += piece.studs_x - 1
+
         if facing in ("north", "south"):
-            row.place_at(piece.copy(), studs_x=ridge_pos, plates_y=0, studs_z=0, facing=facing)
+            row.place_at(
+                piece.copy(),
+                studs_x=pos,
+                plates_y=0,
+                studs_z=0,
+                facing=facing,
+            )
         else:
-            row.place_at(piece.copy(), studs_x=0, plates_y=0, studs_z=ridge_pos, facing=facing)
-        ridge_pos += piece.studs_x
+            row.place_at(
+                piece.copy(),
+                studs_x=0,
+                plates_y=0,
+                studs_z=pos,
+                facing=facing,
+            )
 
     return row
-
 
 def _tile_ridge(
     ridge_studs: int,
