@@ -338,33 +338,36 @@ class BricksRow(Group):
 
         self.length_studs = self.brick.studs_z # length (thickness) of the row is determined by the brick's depth
 
+        self._build_filler_bricks()
+        self._build_fallback_filler()
+        
+        self._build_bricks_row()
+
+    def _build_filler_bricks(self) -> None:
         self.filler_bricks = [
             Piece(
                 part=part,
-                colour=colour,
-                rotation=orientation_to_rotation(facing),
+                colour=self.colour,
+                rotation=orientation_to_rotation(self.facing),
             )
-            for part in filler_brick_parts
+            for part in self._filler_brick_parts
         ]
 
         # sort filler bricks by width in descending order to try larger pieces first when filling gaps
         self.filler_bricks.sort(key=lambda b: b.studs_x, reverse=True)
 
+    def _build_fallback_filler(self) -> None:
         # fallback: if no other bricks will be provided to fill gaps, this "composite filler" will do
         self.fallback_filler = Group()
 
         fallback_unit = Piece(
             part=Brick1X1,
-            colour=colour,
-            rotation=orientation_to_rotation(facing),
+            colour=self.colour,
+            rotation=orientation_to_rotation(self.facing),
         )
 
         for i in range(self.length_studs):
             self.fallback_filler.place_at(fallback_unit.copy(), studs_z=i)
-
-        
-        self._build_bricks_row()
-
 
     def _build_bricks_row(self) -> None:
         """Internal method to build the row of bricks, filling gaps as needed."""
