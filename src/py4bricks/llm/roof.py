@@ -31,13 +31,6 @@ from py4bricks.pieces import CustomPiece, Piece
 
 debug = True
 
-
-def slope_colour(requested_colour: Colour, orientation: Orientation) -> Colour:
-    if debug:
-        return debug_colour_by_orientation(cast("str", orientation))
-    return requested_colour
-
-
 @dataclass(frozen=True)
 class _RoofGeometry:
     """Derived roof dimensions, computed once from width/length/ridge_running."""
@@ -199,6 +192,9 @@ class Roof(Group):
         width_studs: int,
         length_studs: int,
     ) -> None:
+        # TODO fix top placement, depending on if it is a double slope or a tile one, 
+        # the whole top row shifts to one side and front/back, just by a few studs.
+        # When adjusting for double slope (ok) it becomes off-center for tiles, and vice versa
         if ridge_running == "east-west":
             self.place_at(left_slope, studs_x=0, plates_y=0, studs_z=-1)
             self.place_on_top_of(
