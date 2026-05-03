@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from py4bricks.library.colours import Red, White
-from py4bricks.llm import Roof
+from py4bricks.llm.roof import Roof
 
 if TYPE_CHECKING:
     from py4bricks.colour import Colour
@@ -309,113 +309,4 @@ class Balcony(Group):
             railing_colour=self.railing_colour,
         )
 
-class BricksRow(Group):
-    """A simple row of evenly spaced 1x1 bricks, useful for building walls and other structures."""
-
-    def __init__(
-        self,
-        brick_part: str,
-        width_studs: int,   # east-west dimension (X), same convention as Wall, Box, etc.
-        colour: Colour,
-        filler_brick_parts: list[str] = [], # extra fillers in addition to brick 1x1, must be studs_z = brick_part's studs_z
-        facing: Facing = "north", # bricks will be individually rotated to be facing this direction, not the whole row
-    ) -> None:
-        """Create a row of evenly spaced bricks with the given parameters."""
-        super().__init__()
-
-        self._brick_part = brick_part
-        self.width_studs = width_studs
-        self.colour = colour
-        self._filler_brick_parts = filler_brick_parts
-        self.facing = facing
-
-        # prototype brick
-        self.brick = Piece(
-            part=brick_part,
-            colour=colour,
-            rotation=orientation_to_rotation(facing),
-        )
-
-        self.length_studs = self.brick.studs_z # length (thickness) of the row is determined by the brick's depth
-
-        self._build_filler_bricks()
-        self._build_fallback_filler()
-        
-        self._build_bricks_row()
-
-    def _build_filler_bricks(self) -> None:
-        self.filler_bricks = [
-            Piece(
-                part=part,
-                colour=self.colour,
-                rotation=orientation_to_rotation(self.facing),
-            )
-            for part in self._filler_brick_parts
-        ]
-
-        # sort filler bricks by width in descending order to try larger pieces first when filling gaps
-        self.filler_bricks.sort(key=lambda b: b.studs_x, reverse=True)
-
-    def _build_fallback_filler(self) -> None:
-        # fallback: if no other bricks will be provided to fill gaps, this "composite filler" will do
-        self.fallback_filler = Group()
-
-        fallback_unit = Piece(
-            part=Brick1X1,
-            colour=self.colour,
-            rotation=orientation_to_rotation(self.facing),
-        )
-
-        for i in range(self.length_studs):
-            self.fallback_filler.place_at(fallback_unit.copy(), studs_z=i)
-
-    def _build_bricks_row(self) -> None:
-        """Internal method to build the row of bricks, filling gaps as needed."""
-
-        # Calculate how many whole bricks fit and the remaining gap
-        whole_bricks_count = self.width_studs // self.brick.studs_x
-        remaining_studs_count = self.width_studs % self.brick.studs_x
-
-        bricks = []
-
-        bricks_whole = [self.brick.copy() for _ in range(whole_bricks_count)]
-
-        # select filler bricks to fill the remaining gap, trying larger fillers first and using the fallback if needed
-        def max_filler(gap: int) -> Piece | None:
-            """Return the largest filler brick that can fit in the given gap, or None if no filler can fit."""
-            for filler in self.filler_bricks:
-                if filler.studs_x <= gap:
-                    return filler.copy()
-            return None
-
-        bricks_filler = []
-
-        while remaining_studs_count > 0:
-            filler = max_filler(remaining_studs_count)
-            if filler is not None:
-                bricks_filler.append(filler)
-                remaining_studs_count -= filler.studs_x
-            else:
-                bricks_filler.append(self.fallback_filler.copy())
-                remaining_studs_count -= self.fallback_filler.studs_x
-
-        # TODO in order to avoid all fillers being placed at the end of the row,
-        # implement a smarter distribution of fillers to make the row look more uniform
-        bricks.extend(bricks_whole)
-        bricks.extend(bricks_filler)
-
-        acc_studs_x = 0
-        for brick in bricks:
-            self.place_at(brick, studs_x=acc_studs_x)
-            acc_studs_x += brick.studs_x
-    
-    def copy(self) -> BricksRow:
-        """Return a new independent BricksRow with the same parameters and fresh pieces."""
-        return BricksRow(
-            brick_part=self._brick_part,
-            width_studs=self.width_studs,
-            colour=self.colour,
-            filler_brick_parts=self._filler_brick_parts,
-            facing=self.facing,
-        )
 

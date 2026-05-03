@@ -23,7 +23,7 @@ def debug_colour_by_orientation(orientation: Literal["north", "south", "east", "
         case _:
             raise ValueError(f"Invalid orientation: {orientation}")
 
-def debug_add_origin_marker(parent_group: Group, piece_or_group: Piece | Group) -> None:
-    origin_marker = Piece(part=Brick1X1, colour=Debug_Dark_Azure)
+def debug_add_origin_marker(parent_group: Group, piece_or_group: Piece | Group, colour: Colour = Debug_Dark_Azure) -> None:
+    origin_marker = Piece(part=Brick1X1, colour=colour)
     origin_marker.position = piece_or_group.position
     parent_group.add(origin_marker)

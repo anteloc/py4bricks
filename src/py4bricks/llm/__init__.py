@@ -26,7 +26,8 @@ from py4bricks.llm.group import Group
 from py4bricks.llm.roof import Roof
 from py4bricks.llm.scene import Scene
 from py4bricks.llm.slab import Slab
-from py4bricks.llm.structures import Balcony, BricksRow, Column, Porch
+from py4bricks.llm.structures import Balcony, Column, Porch
+from py4bricks.llm.primitives import BricksRow
 from py4bricks.llm.types import Facing, Side
 from py4bricks.llm.wall import Wall
 from py4bricks.llm.wall_layout import WallLayout
