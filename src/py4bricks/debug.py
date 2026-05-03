@@ -9,7 +9,7 @@ from py4bricks.pieces import Piece
 from py4bricks.colour import Colour
 from py4bricks.library.parts.bricks import Brick1X1
 
-def debug_colour_by_orientation(orientation: Literal["north", "south", "east", "west"]):
+def debug_colour_by_orientation(orientation: Literal["north", "south", "east", "west"]) -> Colour:
 
     match orientation:
         case "north":

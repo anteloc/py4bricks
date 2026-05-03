@@ -12,7 +12,7 @@ from py4bricks.geometry import (
 )
 from py4bricks.library.parts.bricks import Brick1X1
 from py4bricks.llm.group import Group
-from py4bricks.pieces import Piece
+from py4bricks.pieces import Piece, CustomPiece
 
 
 class BricksRow(Group):
@@ -20,10 +20,10 @@ class BricksRow(Group):
 
     def __init__(
         self,
-        brick_piece: Piece,
+        brick_piece: Piece | CustomPiece,
         width_studs: int,   # east-west dimension (X), same convention as Wall, Box, etc.
         colour: Colour,
-        filler_brick_pieces: list[Piece] = [], # extra fillers in addition to brick 1x1, must be studs_z = brick_piece's studs_z
+        filler_brick_pieces: list[Piece | CustomPiece] = [], # extra fillers in addition to brick 1x1, must be studs_z = brick_piece's studs_z
         facing: Facing = "north", # bricks will be individually rotated to be facing this direction, not the whole row
     ) -> None:
         """Create a row of evenly spaced bricks with the given parameters."""

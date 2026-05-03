@@ -9,7 +9,7 @@ scene = Scene("A Box with a Roof on top, made of sloped bricks test")
 
 box = Box(
     name="Box",
-    width_studs=11,
+    width_studs=15,
     length_studs=22,
     height_bricks=3,
     colour=White,
