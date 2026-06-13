@@ -29,8 +29,6 @@ from py4bricks.llm.primitives import BricksRow
 from py4bricks.llm.types import Facing, Orientation
 from py4bricks.pieces import CustomPiece, Piece
 
-debug = True
-
 @dataclass(frozen=True)
 class _RoofGeometry:
     """Derived roof dimensions, computed once from width/length/ridge_running."""
@@ -92,8 +90,10 @@ class Roof(Group):
         length_studs: int,  # north-south dimension (Z), same convention as Box
         ridge_running: Orientation,
         colour: Colour = Red,
+        debug: bool = False,  # emit per-slope origin markers for inspection
     ) -> None:
         super().__init__(name=name)
+        self.debug = debug
         self._init_pieces(colour)
         geo = _compute_geometry(width_studs, length_studs, ridge_running)
         left_facing, right_facing = _slope_facings(ridge_running)
@@ -148,18 +148,25 @@ class Roof(Group):
             override_render_pos_offset=lambda p: {"y": p.ldu_y - plates_to_ldu(2)},
         )
 
+        # The -90° Y rotation maps the part's local +Z offset onto world X, so
+        # the X-centering must be derived from the *rotated* width (p.ldu_x),
+        # otherwise wider tiles drift half a stud and don't tile flush. The
+        # negation accounts for that axis flip.
+        def _tile_offset(p: Piece) -> dict[str, float]:
+            return {"y": p.ldu_y, "z": -(p.ldu_x / 2 - LDU_PER_STUD / 2)}
+
         self.top_tile_small = CustomPiece(
             part=Tile1X3,
             colour=colour,
             transform_by_rotating=Identity().rotate(-90, YAxis),
-            override_render_pos_offset=lambda p: {"y": p.ldu_y},
+            override_render_pos_offset=_tile_offset,
         )
 
         self.top_tile_medium = CustomPiece(
             part=Tile2X3,
             colour=colour,
             transform_by_rotating=Identity().rotate(-90, YAxis),
-            override_render_pos_offset=lambda p: {"y": p.ldu_y},
+            override_render_pos_offset=_tile_offset,
         )
 
         # composite top piece, emulating a non-existing Tile3X3
@@ -192,9 +199,11 @@ class Roof(Group):
         width_studs: int,
         length_studs: int,
     ) -> None:
-        # TODO fix top placement, depending on if it is a double slope or a tile one, 
-        # the whole top row shifts to one side and front/back, just by a few studs.
-        # When adjusting for double slope (ok) it becomes off-center for tiles, and vice versa
+        # The cap sits on the apex where the two slopes meet. It must be offset
+        # by the slope brick depth (the top slope row's footprint), NOT by the
+        # cap's own depth — otherwise a 3-deep tile cap and a 2-deep double-slope
+        # cap centre differently. Using the slope depth makes both centre alike.
+        slope_depth = self.slope_piece_large.studs_z
         if ridge_running == "east-west":
             self.place_at(left_slope, studs_x=0, plates_y=0, studs_z=-1)
             self.place_on_top_of(
@@ -210,7 +219,7 @@ class Roof(Group):
             self.place_on_top_of(
                 top_row,
                 left_slope,
-                right_studs=(left_slope.studs_x - top_row.studs_z),
+                right_studs=(left_slope.studs_x - slope_depth),
                 back_studs=0,
                 facing="east",
             )
@@ -293,7 +302,7 @@ class Roof(Group):
             )
             prev = row
 
-        if debug:
+        if self.debug:
             debug_add_origin_marker(
                 slope, bottom, colour=debug_colour_by_orientation(facing)
             )
