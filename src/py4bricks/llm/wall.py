@@ -16,6 +16,7 @@ Typical usage:
 """
 from __future__ import annotations
 
+import random
 from typing import TYPE_CHECKING, cast, Literal
 
 if TYPE_CHECKING:
@@ -33,6 +34,7 @@ from py4bricks.geometry import (
     studs_to_ldu, Identity, YAxis,
 )
 from py4bricks.library.parts.bricks import Brick1X1, Brick1X2, Brick2X2, Brick2X4
+from py4bricks.library.parts.tiles import Tile1X1WithGroove, Tile1X2WithGroove
 from py4bricks.llm.group import Group
 from py4bricks.pieces import Piece, CustomPiece
 
@@ -183,6 +185,14 @@ class Wall(Group):
         ]
         # (piece, wall-local studs_x, wall-local brick_row)
         self._inserts: list[tuple[Piece, int, int]] = []
+
+        # Surface enrichment (all opt-in; default keeps the plain wall look).
+        self._foundation_rows   = 0
+        self._foundation_colour: Colour | None = None
+        self._bands: dict[int, Colour]         = {}        # brick_row -> colour
+        self._mottle: tuple[Colour, float, int] | None = None  # (colour, ratio, seed)
+        self._coping_colour: Colour | None     = None
+
         self._dirty = True  # trigger build on first children access
 
     # ------------------------------------------------------------------
@@ -256,6 +266,39 @@ class Wall(Group):
         self._inserts.append((piece, studs_x, brick_row))
         # _dirty already set by opening()
 
+    # ------------------------------------------------------------------
+    # Surface enrichment — opt-in, chainable, applied at build time
+    # ------------------------------------------------------------------
+
+    def foundation(self, *, colour: Colour, brick_rows: int = 1) -> Wall:
+        """Recolour the bottom `brick_rows` rows to read as a foundation/plinth."""
+        self._foundation_rows  = brick_rows
+        self._foundation_colour = colour
+        self._dirty = True
+        return self
+
+    def band(self, *, brick_row: int, colour: Colour) -> Wall:
+        """Recolour a single course to a contrasting string course."""
+        self._bands[brick_row] = colour
+        self._dirty = True
+        return self
+
+    def mottle(self, *, colour: Colour, ratio: float = 0.12, seed: int = 0) -> Wall:
+        """Scatter `ratio` of the plain wall bricks into `colour` for masonry texture.
+
+        Deterministic per cell (same seed → same pattern). Foundation and band
+        courses are left untouched so they stay clean and legible.
+        """
+        self._mottle = (colour, ratio, seed)
+        self._dirty = True
+        return self
+
+    def coping(self, *, colour: Colour) -> Wall:
+        """Cap the wall top with a smooth tile course, so it doesn't end in raw studs."""
+        self._coping_colour = colour
+        self._dirty = True
+        return self
+
     def copy(self) -> Wall:
         """Create a deep copy of this Wall, including all inserts but excluding children."""
         new_wall = Wall(
@@ -268,6 +311,12 @@ class Wall(Group):
         )
         new_wall._grid = [row.copy() for row in self._grid]
         new_wall._inserts = self._inserts.copy()
+        # Carry surface enrichment so copies (parallel/divider walls) match.
+        new_wall._foundation_rows   = self._foundation_rows
+        new_wall._foundation_colour = self._foundation_colour
+        new_wall._bands             = dict(self._bands)
+        new_wall._mottle            = self._mottle
+        new_wall._coping_colour     = self._coping_colour
         # `orientation` is stale once Scene.place_at has run, so copy the
         # actual rotation matrix instead of going through the facing string.
         new_wall.local_rot = self.local_rot.copy()
@@ -279,11 +328,45 @@ class Wall(Group):
     # ------------------------------------------------------------------
 
     def _build(self) -> None:
-        """Rebuild _children from the grid and scheduled inserts."""
+        """Rebuild _children from the grid, enrichment, and scheduled inserts."""
         self._children.clear()
         for brick_row in range(self._height_bricks):
             self._children.extend(self._bricks_for_row(brick_row))
+        if self._coping_colour is not None:
+            self._children.extend(self._coping_pieces())
         self._place_inserts()
+
+    def _colour_for(self, brick_row: int, x: int) -> Colour:
+        """Resolve a cell's colour from the enrichment rules.
+
+        Precedence: explicit band course > foundation > scattered mottle > wall.
+        Bands/foundation win so deliberate courses stay clean; mottle only
+        textures the plain field.
+        """
+        if brick_row in self._bands:
+            return self._bands[brick_row]
+        if brick_row < self._foundation_rows and self._foundation_colour is not None:
+            return self._foundation_colour
+        if self._mottle is not None:
+            colour, ratio, seed = self._mottle
+            if random.Random(f"{seed}:{x}:{brick_row}").random() < ratio:
+                return colour
+        return self._colour
+
+    def _coping_pieces(self) -> list[Piece]:
+        """A smooth tile course capping the wall top, covering its full thickness."""
+        pieces: list[Piece] = []
+        y = plates_to_ldu(self._height_plates)
+        for z in range(self.thickness_studs):
+            x = 0
+            while x < self._width_studs:
+                use_1x2 = x + 1 < self._width_studs
+                part    = Tile1X2WithGroove if use_1x2 else Tile1X1WithGroove
+                tile    = Piece(part=part, colour=cast("Colour", self._coping_colour))
+                tile.position = Vector(studs_to_ldu(x), y, studs_to_ldu(z))
+                pieces.append(tile)
+                x += 2 if use_1x2 else 1
+        return pieces
 
     def _bricks_for_row(self, brick_row: int) -> list[Piece]:
         """Return the brick Pieces that fill one horizontal row of the grid."""
@@ -300,6 +383,7 @@ class Wall(Group):
                 x += 1
                 continue
             brick, step = self._choose_brick(x, plate_y, bond_offset)
+            brick.colour = self._colour_for(brick_row, x)
             brick.position = Vector(studs_to_ldu(x), plates_to_ldu(plate_y), 0)
             pieces.append(brick)
             x += step

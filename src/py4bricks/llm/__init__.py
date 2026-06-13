@@ -23,6 +23,16 @@ from py4bricks.geometry import (
 )
 from py4bricks.llm.box import Box
 from py4bricks.llm.group import Group
+from py4bricks.llm.palette import (
+    ALL_PALETTES,
+    BRICK_RED,
+    COTTAGE,
+    MODERN,
+    SANDSTONE,
+    STONE_GREY,
+    TUDOR,
+    Palette,
+)
 from py4bricks.llm.roof import Roof
 from py4bricks.llm.scene import Scene
 from py4bricks.llm.slab import Slab
@@ -33,12 +43,20 @@ from py4bricks.llm.wall import Wall
 from py4bricks.llm.wall_layout import WallLayout
 
 __all__ = [
+    "ALL_PALETTES",
+    "BRICK_RED",
+    "COTTAGE",
+    "MODERN",
+    "SANDSTONE",
+    "STONE_GREY",
+    "TUDOR",
     "Balcony",
     "Box",
     "BricksRow",
     "Column",
     "Facing",
     "Group",
+    "Palette",
     "Porch",
     "Roof",
     "Scene",
