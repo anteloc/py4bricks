@@ -19,9 +19,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 # pylint: disable=missing-docstring
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from py4bricks.colour import Colour
 from py4bricks.geometry import Identity, Matrix, Vector, XAxis, YAxis, ZAxis
-from py4bricks.pieces import Group, Piece
+from py4bricks.pieces import Piece
+
+if TYPE_CHECKING:
+    from py4bricks.llm.group import Group
 
 
 def dependent_piece(dep):

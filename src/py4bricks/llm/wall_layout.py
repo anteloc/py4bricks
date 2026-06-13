@@ -21,8 +21,8 @@ Travel → wall facing:
 
 Usage:
     layout = WallLayout(height_bricks=8, colour=Light_Grey, bonded=True)
-    layout.add_wall(name="south", length_studs=20, orientation="east")
-    layout.add_wall(name="east",  length_studs=15, orientation="north")
+    layout.add_wall(name="south", length_studs=20, direction="east")
+    layout.add_wall(name="east",  length_studs=15, direction="north")
     layout["south"].insert(
         piece=Piece(part=Door1X4X6Frame, colour=Tan),
         studs_x=8, brick_row=0,
@@ -104,7 +104,7 @@ class WallLayout(Group):
     ) -> Wall:
         """Add a named Wall and advance the turtle by the same length.
 
-        orientation — compass direction the turtle travels to lay this wall.
+        direction — compass direction the turtle travels to lay this wall.
         length_studs — exact length to build for this wall.
 
         Returns the created Wall so callers can chain .insert() / .opening().

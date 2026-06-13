@@ -48,7 +48,7 @@ class Column(Group):
     To build a colonnade with a connecting slab on top:
 
         portico = Column.column_row(
-            prototype=col, count=5, spacing_studs=4,
+            column_prototype=col, count=5, spacing_studs=4,
             with_slabs_colour=Light_Grey,
         )
         scene.place_on_top_of(portico, base_slab)
@@ -70,7 +70,7 @@ class Column(Group):
         box and automatically transposed when the prototype faces east/west,
         so the slab always spans the correct axes regardless of orientation.
 
-        prototype       — Column instance used as the template; copied `count` times.
+        column_prototype — Column instance used as the template; copied `count` times.
         count           — number of columns in the row.
         spacing_studs   — stud distance from the start of one column to the next.
         with_slabs_colour — if set, caps the row with a slab of this colour.

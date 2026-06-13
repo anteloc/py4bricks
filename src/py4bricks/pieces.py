@@ -28,6 +28,13 @@ from py4bricks.library.colours import White
 from py4bricks.library.parts.slopes import SlopeBrick451X1Double, SlopeBrick452X1, SlopeBrick452X1Double
 from py4bricks.library.parts.tiles import Tile1X3
 
+if TYPE_CHECKING:
+    # The one and only Group lives in the llm layer. Imported for type hints
+    # only — Piece duck-types group._adopt/.position/.rotation, so no runtime
+    # import is needed (which also avoids a circular import: llm.group imports
+    # this module).
+    from py4bricks.llm.group import Group
+
 
 # Defaults (see Piece.__init__):
 #   x = ldu_x/2 - LDU_PER_STUD/2         # assumes LDraw origin at bbox centre in X
@@ -305,77 +312,3 @@ class CustomPiece(Piece):
             group=None,
             override_render_pos_offset=self.override_render_offset,
         )
-
-
-class Group:
-    """a Group of Pieces."""
-
-    def __init__(
-        self,
-        position: Vector = Vector(0, 0, 0),
-        rotation: Matrix = Identity(),
-    ) -> None:
-        self.position = position
-        self.rotation = rotation
-        self.pieces: list[Piece] = []
-        # Bounding box in group-local space, same attribute shape as Piece
-        self.ldu_x: float = 0
-        self.ldu_y: float = 0
-        self.ldu_z: float = 0
-        self.studs_x: int = 0
-        self.plates_y: int = 0
-        self.studs_z: int = 0
-
-    def __repr__(self) -> str:
-        return "\n".join([repr(piece) for piece in self.pieces])
-
-    def _recalculate_dimensions(self) -> None:
-        """Recompute the bounding box of all pieces in group-local space.
-
-        Dimensions are expressed relative to the group origin, mirroring the
-        attribute shape of Piece so callers can treat Group and Piece uniformly.
-        """
-        if not self.pieces:
-            self.ldu_x = self.ldu_y = self.ldu_z = 0
-            self.studs_x = self.plates_y = self.studs_z = 0
-            return
-
-        min_x = min(p.position.x for p in self.pieces)
-        max_x = max(p.position.x + p.ldu_x for p in self.pieces)
-        min_y = min(p.position.y for p in self.pieces)
-        max_y = max(p.position.y + p.ldu_y for p in self.pieces)
-        min_z = min(p.position.z for p in self.pieces)
-        max_z = max(p.position.z + p.ldu_z for p in self.pieces)
-
-        self.ldu_x = max_x - min_x
-        self.ldu_y = max_y - min_y
-        self.ldu_z = max_z - min_z
-        self.studs_x = ldu_to_studs(self.ldu_x)
-        # Floor division snaps to the plate grid, ignoring sub-plate stud protrusions
-        # (e.g. Brick1X1 ldu_y=28 = 24 LDU body + 4 LDU stud; structural height is 24).
-        self.plates_y = int(self.ldu_y // LDU_PER_PLATE)
-        self.studs_z = ldu_to_studs(self.ldu_z)
-
-    def _adopt(self, piece: Piece) -> None:
-        """Duck-type hook for Piece.__init__() and Piece.attach()."""
-        self.pieces.append(piece)
-        if piece.group and piece.group != self:
-            piece.group.remove_piece(piece)
-        piece.group = self
-        self._recalculate_dimensions()
-
-    def remove_piece(self, piece: Piece) -> None:
-        """Remove a piece from the group."""
-        if piece is None:
-            return
-        self.pieces.remove(piece)
-        piece.group = None
-        self._recalculate_dimensions()
-
-    def displace_by(self, displacement: Vector) -> None:
-        """Translate this group in world space, moving all contained pieces with it."""
-        self.position = self.position + displacement
-
-    def rotate_by(self, rotation: Matrix) -> None:
-        """Post-multiply this group's rotation matrix by the given rotation."""
-        self.rotation = self.rotation * rotation

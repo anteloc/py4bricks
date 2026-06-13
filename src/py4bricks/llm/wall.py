@@ -15,7 +15,6 @@ Typical usage:
     scene.place_at(wall, studs_x=0, plates_y=0, studs_z=0, facing="north")
 """
 from __future__ import annotations
-from pygments.unistring import Pi
 
 from typing import TYPE_CHECKING, cast, Literal
 
@@ -63,7 +62,17 @@ class Wall(Group):
         at_distance_studs: int,
         colour: Colour | None = None,
     ) -> Wall:
-        """A wall parallel to the given one, start"""
+        """Build a copy of to_wall, offset perpendicular to its run.
+
+        The new wall keeps to_wall's facing, length, height, and thickness; it
+        is shifted by at_distance_studs along to_wall's local +Z (the axis
+        perpendicular to the wall's run), so it stays parallel for any facing.
+
+        name              — name for the new wall.
+        to_wall           — the existing wall to copy and offset from.
+        at_distance_studs — perpendicular distance from to_wall, in studs.
+        colour            — override colour; None keeps to_wall's colour.
+        """
         wall = to_wall.copy()
 
         wall.name = name
