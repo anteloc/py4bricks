@@ -27,6 +27,7 @@ from py4bricks.llm.house import House
 from py4bricks.llm.openings import Door, Window
 from py4bricks.llm.ornaments import (
     Awning,
+    Balcony,
     Chimney,
     Lamp,
     Pergola,
@@ -47,7 +48,7 @@ from py4bricks.llm.palette import (
 from py4bricks.llm.roof import Roof
 from py4bricks.llm.scene import Scene
 from py4bricks.llm.slab import Slab
-from py4bricks.llm.structures import Balcony, Column, Porch
+from py4bricks.llm.structures import Column, Porch
 from py4bricks.llm.primitives import BricksRow
 from py4bricks.llm.types import Facing, Side
 from py4bricks.llm.wall import Wall

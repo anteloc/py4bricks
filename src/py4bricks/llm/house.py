@@ -8,8 +8,15 @@ get a finished building in a couple of lines, then customise from there.
     from py4bricks.llm import House, Scene, COTTAGE
 
     scene = Scene("village")
+    # a cosy single-storey cottage
     scene.place_at(House(width_studs=22, length_studs=16, palette=COTTAGE, chimney=True))
-    scene.render_file("house.mpd")
+    # a two-storey house with a balcony off an upper-floor door
+    scene.place_at(
+        House(width_studs=24, length_studs=18, palette=COTTAGE,
+              storeys=2, balcony="south", chimney=True),
+        studs_x=30,
+    )
+    scene.render_file("houses.mpd")
 
 
 STYLE COOKBOOK — how to make a building look good
@@ -36,8 +43,9 @@ STYLE COOKBOOK — how to make a building look good
 6. FINISH THE ROOF. A gabled `Roof(..., eaves_studs=1)` in `palette.roof`, and
    a `Chimney(..., skirt_bricks=3)` near the ridge.
 
-7. ADD A LITTLE LIFE. A `Planter`, `Lamp`, or `Sign` by the door; a `Railing`
-   on a balcony. A few details read as "designed".
+7. ADD A LITTLE LIFE. A `Planter`, `Lamp`, or `Sign` by the door. A `Balcony`
+   belongs on an UPPER storey, opening off a door — never floating over the
+   ground entrance; `House(storeys=2, balcony="south")` wires that up for you.
 
 8. TEXTURE, SPARINGLY. `wall.mottle(colour=palette.base, ratio=0.10)` for
    subtle masonry variation — keep the ratio low so it doesn't look noisy.
@@ -51,23 +59,30 @@ if TYPE_CHECKING:
     from py4bricks.llm.palette import Palette
     from py4bricks.llm.types import Facing, Orientation
 
+from py4bricks.geometry import PLATES_PER_BRICK_HEIGHT
 from py4bricks.llm.box import Box
 from py4bricks.llm.group import Group
 from py4bricks.llm.openings import Door, Window
-from py4bricks.llm.ornaments import Chimney
+from py4bricks.llm.ornaments import Balcony, Chimney
 from py4bricks.llm.roof import Roof
 
 
 class House(Group):
-    """A complete building: enriched walls, rhythmic openings, a roof, a chimney.
+    """A complete multi-storey building: enriched walls, rhythmic openings per
+    floor, a roof, an optional chimney and balcony.
 
     width_studs / length_studs — footprint, in studs.
-    height_bricks — wall height in brick rows (default 9; must fit the door).
     palette       — colour scheme (its roles drive every colour choice).
-    door_facing   — which wall carries the entrance (default "south").
-    windows       — auto-place evenly-spaced windows on every wall (default True).
-    chimney       — add a chimney near the ridge (default False).
+    storeys       — number of floors (default 1).
+    storey_height_bricks — height of one floor in brick rows (default 9; must
+                    fit a door).
+    door_facing   — which wall carries the ground entrance (default "south").
+    windows       — auto-place evenly-spaced windows on every floor (default True).
+    chimney       — add a chimney on the ridge (default False).
     texture       — subtle wall mottling (default False).
+    balcony       — wall to carry a balcony (default None). A balcony always
+                    opens off a door on the TOP storey, so this requires
+                    storeys >= 2.
     ridge_running — roof ridge direction; defaults to along the longer side.
     """
 
@@ -77,26 +92,46 @@ class House(Group):
         width_studs: int,
         length_studs: int,
         palette: Palette,
-        height_bricks: int = 9,
+        storeys: int = 1,
+        storey_height_bricks: int = 9,
         door_facing: Facing = "south",
         windows: bool = True,
         chimney: bool = False,
         texture: bool = False,
+        balcony: Facing | None = None,
         ridge_running: Orientation | None = None,
         name: str = "house",
     ) -> None:
         super().__init__(name=name)
+        if balcony is not None and storeys < 2:
+            raise ValueError(
+                "balcony requires storeys >= 2 — it must open off a door on an "
+                "upper floor, not over the ground entrance",
+            )
+
+        height_bricks = storeys * storey_height_bricks
+        self._occupied: list[tuple[Facing, int, int, int, int]] = []  # side,x0,x1,r0,r1
 
         box = Box(
             width_studs=width_studs, length_studs=length_studs,
             height_bricks=height_bricks, colour=palette.wall, bonded=True,
             name=f"{name}_walls",
         )
-        self._enrich_walls(box, palette, texture)
-        self._add_door(box, palette, door_facing, width_studs, length_studs)
+        self._enrich_walls(box, palette, texture, storeys, storey_height_bricks)
+
+        # Ground entrance.
+        self._add_door(box, palette, door_facing, 0, width_studs, length_studs)
+        # A balcony always opens off a door on the top storey.
+        balcony_floor_row = (storeys - 1) * storey_height_bricks
+        if balcony is not None:
+            self._add_door(box, palette, balcony, balcony_floor_row, width_studs, length_studs)
+
         if windows:
-            self._add_windows(box, palette, door_facing, width_studs, length_studs, height_bricks)
+            self._add_windows(box, palette, storeys, storey_height_bricks, width_studs, length_studs)
         self.add(box)
+
+        if balcony is not None:
+            self._add_balcony(palette, balcony, width_studs, length_studs, balcony_floor_row)
 
         rr = ridge_running or ("east-west" if width_studs >= length_studs else "north-south")
         roof = Roof(
@@ -123,43 +158,101 @@ class House(Group):
     # Assembly steps
     # ------------------------------------------------------------------
 
-    def _enrich_walls(self, box: Box, palette: Palette, texture: bool) -> None:
+    def _enrich_walls(
+        self, box: Box, palette: Palette, texture: bool,
+        storeys: int, storey_height_bricks: int,
+    ) -> None:
         for side in ("south", "east", "north", "west"):
             wall = box[side]
             wall.foundation(colour=palette.base, brick_rows=1)
             wall.coping(colour=palette.trim)
             if texture:
                 wall.mottle(colour=palette.base, ratio=0.10, seed=1)
+            # A string course at each floor line separates the storeys.
+            for s in range(1, storeys):
+                wall.band(brick_row=s * storey_height_bricks, colour=palette.trim)
 
     def _add_door(
-        self, box: Box, palette: Palette, door_facing: Facing,
+        self, box: Box, palette: Palette, side: Facing, brick_row: int,
         width_studs: int, length_studs: int,
     ) -> None:
         door = Door(colour=palette.trim, leaf_colour=palette.accent)
-        wall_width = self._wall_width(door_facing, width_studs, length_studs)
-        door_x = max(0, (wall_width - door.opening_width_studs) // 2)
-        self._door_span = (door_facing, door_x, door.opening_width_studs)
-        box[door_facing].insert(piece=door, studs_x=door_x, brick_row=0)
+        wall_width = self._wall_width(side, width_studs, length_studs)
+        x = max(0, (wall_width - door.opening_width_studs) // 2)
+        self._occupied.append(
+            (side, x, x + door.opening_width_studs, brick_row, brick_row + door.opening_height_bricks),
+        )
+        box[side].insert(piece=door, studs_x=x, brick_row=brick_row)
 
     def _add_windows(
-        self, box: Box, palette: Palette, door_facing: Facing,
-        width_studs: int, length_studs: int, height_bricks: int,
+        self, box: Box, palette: Palette, storeys: int, storey_height_bricks: int,
+        width_studs: int, length_studs: int,
     ) -> None:
         proto = Window(colour=palette.trim)
         win_w, win_h = proto.opening_width_studs, proto.opening_height_bricks
-        row = max(1, (height_bricks - win_h) // 2)
-        if row + win_h > height_bricks:        # too short to fit a window
-            return
+        total = storeys * storey_height_bricks
 
-        for side in ("south", "east", "north", "west"):
-            wall_width = self._wall_width(side, width_studs, length_studs)
-            for x in self._even_positions(wall_width, win_w):
-                if self._overlaps_door(side, x, win_w):
-                    continue
-                box[side].insert(
-                    piece=Window(colour=palette.trim, sill_colour=palette.trim),
-                    studs_x=x, brick_row=row,
-                )
+        for s in range(storeys):
+            row = s * storey_height_bricks + max(1, (storey_height_bricks - win_h) // 2)
+            if row + win_h > total:            # storey too short for a window
+                continue
+            for side in ("south", "east", "north", "west"):
+                wall_width = self._wall_width(side, width_studs, length_studs)
+                for x in self._even_positions(wall_width, win_w):
+                    if self._is_occupied(side, x, x + win_w, row, row + win_h):
+                        continue
+                    box[side].insert(
+                        piece=Window(colour=palette.trim, sill_colour=palette.trim),
+                        studs_x=x, brick_row=row,
+                    )
+
+    def _add_balcony(
+        self, palette: Palette, side: Facing,
+        width_studs: int, length_studs: int, floor_row: int,
+    ) -> None:
+        """Hang a balcony on `side`, open back against the wall, floor level with
+        the top-storey door it opens off, projecting outward.
+
+        The balcony is sized to its door (door width + a margin each side) and
+        wall-centred, so it lines up with the centred door rather than dwarfing
+        it. Keeping the width even (door width is even) makes the centres match
+        exactly for any wall width.
+        """
+        wall_width = self._wall_width(side, width_studs, length_studs)
+        door_width = Door(colour=palette.trim).opening_width_studs
+        margin = 2
+        b_width = door_width + 2 * margin
+        b_depth = 4
+        plates_y = floor_row * PLATES_PER_BRICK_HEIGHT
+
+        bal = Balcony(
+            width_studs=b_width, depth_studs=b_depth,
+            floor_colour=palette.base, railing_colour=palette.trim,
+            name=f"{self.name}_balcony",
+        )
+
+        # Centre the balcony on its door. The door is inserted in wall-local
+        # coords whose X flips to world on the north/west walls, so derive the
+        # door's world centre per side and set `c` (the floor's low edge along
+        # the wall) to align with it. facing=side then projects the floor out.
+        door_x = max(0, (wall_width - door_width) // 2)
+        half_door = door_width // 2
+        half_bal = b_width // 2
+        w, length = width_studs, length_studs
+        if side == "south":     # door world x = door_x; floor projects -Z
+            c = door_x + half_door - half_bal
+            sx, sz = c + b_width, 0
+        elif side == "north":   # door world x flips; floor projects +Z
+            c = (w - 1 - door_x - half_door) - half_bal
+            sx, sz = c, length - 1
+        elif side == "east":    # door world z = door_x; floor projects +X
+            c = door_x + half_door - half_bal
+            sx, sz = w - 1, c + b_width
+        else:                   # west: door world z flips; floor projects -X
+            c = (length - 1 - door_x - half_door) - half_bal
+            sx, sz = 0, c
+
+        self.place_at(bal, studs_x=sx, plates_y=plates_y, studs_z=sz, facing=side)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -182,9 +275,9 @@ class House(Group):
         step = (usable - win_width) / (count - 1)
         return [int(round(margin + i * step)) for i in range(count)]
 
-    def _overlaps_door(self, side: Facing, x: int, win_width: int) -> bool:
-        """True if a window at (side, x) would clash with the entrance door."""
-        door_side, door_x, door_w = self._door_span
-        if side != door_side:
-            return False
-        return not (x + win_width <= door_x or x >= door_x + door_w)
+    def _is_occupied(self, side: Facing, x0: int, x1: int, r0: int, r1: int) -> bool:
+        """True if (side, x0..x1, r0..r1) overlaps any door/opening already placed."""
+        return any(
+            s == side and x0 < ox1 and ox0 < x1 and r0 < or1 and or0 < r1
+            for (s, ox0, ox1, or0, or1) in self._occupied
+        )

@@ -299,3 +299,50 @@ class Pergola(Group):
             tile = Piece(part=Tile1X1WithGroove, colour=colour)
             tile.position = at(i)
             self.add(tile)
+
+
+class Balcony(Group):
+    """A floor slab edged by a continuous Railing on three sides.
+
+    The back (the z=0 edge) is left open, since a balcony meets the building
+    there; the front (far edge) and both sides get the improved Railing, so the
+    whole perimeter reads as a proper balustrade rather than corner posts.
+
+    width_studs / depth_studs — footprint (width along the wall, depth outward).
+    floor_colour     — slab colour.
+    railing_colour   — railing colour (defaults to floor_colour).
+    railing_height_bricks — baluster height (default 2).
+    baluster_shape   — "round" or "square" (default "round").
+    """
+
+    def __init__(
+        self,
+        *,
+        width_studs: int,
+        depth_studs: int,
+        floor_colour: Colour,
+        railing_colour: Colour | None = None,
+        railing_height_bricks: int = 2,
+        baluster_shape: Literal["round", "square"] = "round",
+        name: str = "",
+    ) -> None:
+        super().__init__(name=name)
+        self.width_studs = width_studs
+        self.depth_studs = depth_studs
+        rc = railing_colour if railing_colour is not None else floor_colour
+
+        floor = Slab(width_studs=width_studs, length_studs=depth_studs, colour=floor_colour)
+        self.add(floor)
+
+        def rail(length: int) -> Railing:
+            return Railing(
+                length_studs=length, colour=rc,
+                height_bricks=railing_height_bricks, shape=baluster_shape,
+            )
+
+        # Front rail runs along +X at the far edge.
+        self.place_on_top_of(rail(width_studs - 1), floor, back_studs=depth_studs - 1)
+        # Side rails run along +Z (facing "west" maps a railing's local +X onto +Z),
+        # one at each side edge; the back stays open.
+        self.place_on_top_of(rail(depth_studs - 1), floor, facing="west")
+        self.place_on_top_of(rail(depth_studs - 1), floor, right_studs=width_studs - 1, facing="west")

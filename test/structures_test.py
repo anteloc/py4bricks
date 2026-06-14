@@ -92,15 +92,10 @@ flat_porche = Porch(
 scene.place_at(flat_porche, studs_x=40, studs_z=75, facing="north")
 
 # A balcony
-col_balcony_prototype = Column(
-    height_bricks=4, colour=Yellow, facing="north", shape="square",
-)
-
 balcony = Balcony(
     name="Balcony",
-    column_prototype=col_balcony_prototype,
     width_studs=16,
-    length_studs=5,
+    depth_studs=5,
     floor_colour=White,
     railing_colour=Blue,
 )
