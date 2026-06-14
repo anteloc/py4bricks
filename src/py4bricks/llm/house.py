@@ -67,7 +67,7 @@ STYLE COOKBOOK — how to make a building look good
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from py4bricks.colour import Colour
@@ -82,6 +82,7 @@ from py4bricks.llm.massing import BayWindow
 from py4bricks.llm.openings import Door, Window
 from py4bricks.llm.ornaments import Balcony, Chimney
 from py4bricks.llm.roof import Roof
+from py4bricks.llm.slab import Slab
 
 
 class House(Group):
@@ -324,13 +325,17 @@ class House(Group):
         entrance: Facing = "south",
         chimney: bool = False,
         texture: bool = False,
+        roof_style: Literal["gabled", "flat"] = "gabled",
+        parapet_bricks: int = 1,
         name: str = "house",
     ) -> Group:
         """A complete multi-block building from a Footprint — the general path.
 
         Builds the enriched, opening-bearing shell (continuous interiors,
         exterior-only windows/door) from the footprint's exterior runs, then caps
-        each block with its own gabled roof and optionally adds a chimney.
+        it: a per-block gabled roof (`roof_style="gabled"`, houses) or a flat deck
+        with a parapet following the exterior boundary (`roof_style="flat"`, the
+        tall-building top). A chimney applies to gabled roofs only.
 
         Any massing expressible as a union of rectangles works: L / T / U /
         courtyard / wings / bays are all just blocks — no special-casing.
@@ -348,8 +353,19 @@ class House(Group):
         )
         building.add(shell)
 
-        # One gabled roof per block, seated on the wall tops.
         top = height * PLATES_PER_BRICK_HEIGHT
+        if roof_style == "flat":
+            cls._add_flat_roof(building, footprint, palette, top, parapet_bricks, name)
+        else:
+            cls._add_gabled_roofs(building, footprint, palette, top, chimney, name)
+        return building
+
+    @staticmethod
+    def _add_gabled_roofs(
+        building: Group, footprint: Footprint, palette: Palette,
+        top: int, chimney: bool, name: str,
+    ) -> None:
+        """One gabled roof per block, seated on the wall tops; optional chimney."""
         roofs: list[tuple[Group, int, int, int, int, Orientation]] = []
         for i, (x, z, w, length) in enumerate(footprint.blocks):
             rr: Orientation = "east-west" if w >= length else "north-south"
@@ -372,7 +388,24 @@ class House(Group):
                 Chimney(colour=palette.base, height_bricks=4, cap_colour=palette.trim, skirt_bricks=2),
                 roof, right_studs=cr, back_studs=cb,
             )
-        return building
+
+    @staticmethod
+    def _add_flat_roof(
+        building: Group, footprint: Footprint, palette: Palette,
+        top: int, parapet_bricks: int, name: str,
+    ) -> None:
+        """A flat deck (a Slab per block) plus a parapet that follows the exterior
+        boundary — reusing the boundary tracer, so it stays continuous around any
+        massing and never raises an interior parapet."""
+        for i, (x, z, w, length) in enumerate(footprint.blocks):
+            deck = Slab(width_studs=w, length_studs=length, colour=palette.roof, name=f"{name}_deck{i}")
+            building.place_at(deck, studs_x=x, plates_y=top, studs_z=z)
+
+        parapet = footprint.build_shell(
+            height_bricks=parapet_bricks, colour=palette.wall, bonded=True,
+            coping_colour=palette.trim, name=f"{name}_parapet",
+        )
+        building.place_at(parapet, studs_x=0, plates_y=top, studs_z=0)
 
     @classmethod
     def l_plan(
