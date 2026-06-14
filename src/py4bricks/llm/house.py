@@ -411,9 +411,13 @@ class House(Group):
             )
             building.place_at(shell, studs_x=0, plates_y=base_brick * PLATES_PER_BRICK_HEIGHT, studs_z=0)
             base_brick += height
+            # The next tier (if any) sits on this tier's deck; its footprint marks
+            # where this parapet must not run (else it interpenetrates the wall above).
+            above = tiers[i + 1][0].cells() if i + 1 < len(tiers) else None
             cls._add_flat_roof(
                 building, footprint, palette,
                 base_brick * PLATES_PER_BRICK_HEIGHT, parapet_bricks, f"{name}_tier{i}",
+                exclude_under=above,
             )
         return building
 
@@ -450,17 +454,21 @@ class House(Group):
     def _add_flat_roof(
         building: Group, footprint: Footprint, palette: Palette,
         top: int, parapet_bricks: int, name: str,
+        exclude_under: set[tuple[int, int]] | None = None,
     ) -> None:
         """A flat deck (a Slab per block) plus a parapet that follows the exterior
         boundary — reusing the boundary tracer, so it stays continuous around any
-        massing and never raises an interior parapet."""
+        massing and never raises an interior parapet.
+
+        `exclude_under` (the footprint of the tier above) drops parapet segments
+        the upper tier sits on, so the parapet rims only the exposed terrace."""
         for i, (x, z, w, length) in enumerate(footprint.blocks):
             deck = Slab(width_studs=w, length_studs=length, colour=palette.roof, name=f"{name}_deck{i}")
             building.place_at(deck, studs_x=x, plates_y=top, studs_z=z)
 
         parapet = footprint.build_shell(
             height_bricks=parapet_bricks, colour=palette.wall, bonded=True,
-            coping_colour=palette.trim, name=f"{name}_parapet",
+            coping_colour=palette.trim, exclude_under=exclude_under, name=f"{name}_parapet",
         )
         building.place_at(parapet, studs_x=0, plates_y=top, studs_z=0)
 

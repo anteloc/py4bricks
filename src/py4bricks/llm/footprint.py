@@ -115,6 +115,7 @@ class Footprint:
         entrance: Facing | None = None,
         door_colour: Colour | None = None,
         leaf_colour: Colour | None = None,
+        exclude_under: set[tuple[int, int]] | None = None,
         name: str = "shell",
     ) -> Group:
         """Build a Group of exterior Walls covering the footprint boundary.
@@ -131,24 +132,27 @@ class Footprint:
         and windows are placed per storey (centred within each), so they never
         clip the bands.
 
-        The facade is either "punched" (individual windows, houses) or "curtain"
-        (a glazed skin — trans glass with vertical mullions, the floor bands
-        acting as spandrels; tall buildings). Either way openings stay EXTERIOR,
-        since they only attach to the exterior wall runs:
-            windows  — (punched) distribute evenly-spaced windows along every
-                       wide-enough run, with corner margins.
-            entrance — put a door on the widest run facing this way.
+        A "punched" facade gets individual windows (houses); a "curtain" facade
+        gets a uniform glazed grid — trans glass framed by mullions/transoms, no
+        floor bands (they would beat against the transom grid). Either way
+        openings stay EXTERIOR, since they only attach to the exterior runs.
+
+        `exclude_under` (a set of covered cells) drops any run segment whose
+        interior cell is covered — used to build a tier's parapet only along the
+        exposed terrace edges, never where the tier above continues straight up.
         """
         storey_height = height_bricks // max(1, storeys)
-        floor_lines = [s * storey_height for s in range(1, storeys)]
+        # Curtain walls use the transom grid for horizontal lines; floor bands
+        # would beat against it and look irregular, so omit them there.
+        floor_lines = [] if facade == "curtain" else [s * storey_height for s in range(1, storeys)]
 
         runs = self.exterior_runs()
         shell = Group(name=name)
         placed: list[tuple[tuple[Facing, int, int, int], Wall]] = []
-        for run in runs:
-            facing, fixed, a0, a1 = run
-            wall_facing, sx, sz = _wall_placement(facing, fixed, a0, a1)
-            wall = Wall(width_studs=a1 - a0, height_bricks=height_bricks, colour=colour, bonded=bonded)
+
+        def make_wall(facing: Facing, fixed: int, s0: int, s1: int) -> None:
+            wall_facing, sx, sz = _wall_placement(facing, fixed, s0, s1)
+            wall = Wall(width_studs=s1 - s0, height_bricks=height_bricks, colour=colour, bonded=bonded)
             if foundation_colour is not None:
                 wall.foundation(colour=foundation_colour)
             if coping_colour is not None:
@@ -157,17 +161,23 @@ class Footprint:
                 wall.band(brick_row=row, colour=band_colour or coping_colour or colour)
             if mottle_colour is not None:
                 wall.mottle(colour=mottle_colour, ratio=mottle_ratio)
-            shell.place_at(wall, studs_x=sx, plates_y=0, studs_z=sz, facing=wall_facing)
-            placed.append((run, wall))
-
-        if facade == "curtain":
-            for _, wall in placed:
+            if facade == "curtain":
                 wall.glaze(
-                    glass_colour=glass_colour or colour,
-                    mullion_colour=window_colour or colour,
-                    segment_width_studs=glass_segment_width,
-                    segment_height_bricks=glass_segment_height,
+                    glass_colour=glass_colour or colour, mullion_colour=window_colour or colour,
+                    segment_width_studs=glass_segment_width, segment_height_bricks=glass_segment_height,
                 )
+            shell.place_at(wall, studs_x=sx, plates_y=0, studs_z=sz, facing=wall_facing)
+            placed.append(((facing, fixed, s0, s1), wall))
+
+        for facing, fixed, a0, a1 in runs:
+            if exclude_under is None:
+                make_wall(facing, fixed, a0, a1)   # full run; calibrated anchors tile corners cleanly
+                continue
+            # Parapet case: drop segments the tier above sits on.
+            def covered(along: int, facing: Facing = facing, fixed: int = fixed) -> bool:
+                return _interior_cell(facing, fixed, along) in exclude_under
+            for s0, s1 in _split_runs(a0, a1, covered):
+                make_wall(facing, fixed, s0, s1)
 
         door_span: tuple[Wall, int, int, int, int] | None = None
         if entrance is not None:
@@ -175,6 +185,33 @@ class Footprint:
         if facade == "punched" and windows:
             _place_windows(placed, storeys, storey_height, window_colour or colour, door_span)
         return shell
+
+
+def _split_runs(a0: int, a1: int, excluded) -> list[tuple[int, int]]:
+    """Contiguous [start, end) sub-runs of [a0, a1) whose positions are not excluded."""
+    out: list[tuple[int, int]] = []
+    start: int | None = None
+    for v in range(a0, a1):
+        if excluded(v):
+            if start is not None:
+                out.append((start, v))
+                start = None
+        elif start is None:
+            start = v
+    if start is not None:
+        out.append((start, a1))
+    return out
+
+
+def _interior_cell(facing: Facing, fixed: int, along: int) -> tuple[int, int]:
+    """The occupied cell just inside an exterior edge run at position `along`."""
+    if facing == "north":
+        return along, fixed - 1
+    if facing == "south":
+        return along, fixed
+    if facing == "east":
+        return fixed - 1, along
+    return fixed, along  # west
 
 
 def _even_positions(width: int, opening: int, margin: int = 2) -> list[int]:
