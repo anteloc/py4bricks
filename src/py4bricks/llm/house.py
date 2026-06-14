@@ -62,6 +62,7 @@ if TYPE_CHECKING:
 from py4bricks.geometry import PLATES_PER_BRICK_HEIGHT
 from py4bricks.llm.box import Box
 from py4bricks.llm.group import Group
+from py4bricks.llm.massing import BayWindow
 from py4bricks.llm.openings import Door, Window
 from py4bricks.llm.ornaments import Balcony, Chimney
 from py4bricks.llm.roof import Roof
@@ -99,6 +100,7 @@ class House(Group):
         chimney: bool = False,
         texture: bool = False,
         balcony: Facing | None = None,
+        bay: Facing | None = None,
         ridge_running: Orientation | None = None,
         name: str = "house",
     ) -> None:
@@ -132,6 +134,8 @@ class House(Group):
 
         if balcony is not None:
             self._add_balcony(palette, balcony, width_studs, length_studs, balcony_floor_row)
+        if bay is not None:
+            self._add_bay(palette, bay, width_studs, length_studs, height_bricks)
 
         rr = ridge_running or ("east-west" if width_studs >= length_studs else "north-south")
         roof = Roof(
@@ -254,9 +258,81 @@ class House(Group):
 
         self.place_at(bal, studs_x=sx, plates_y=plates_y, studs_z=sz, facing=side)
 
+    def _add_bay(
+        self, palette: Palette, side: Facing,
+        width_studs: int, length_studs: int, height_bricks: int,
+    ) -> None:
+        """Attach a full-height projecting bay window, wall-centred on `side`."""
+        bay_width, bay_depth = 8, 4
+        bay = BayWindow(
+            width_studs=bay_width, depth_studs=bay_depth, height_bricks=height_bricks,
+            colour=palette.wall, window_colour=palette.trim, cap_colour=palette.trim,
+            name=f"{self.name}_bay",
+        )
+        self._project(bay, side, bay_width, floor_row=0,
+                      width_studs=width_studs, length_studs=length_studs)
+
+    def _project(
+        self, item: Group, side: Facing, item_width: int, *,
+        floor_row: int, width_studs: int, length_studs: int,
+    ) -> None:
+        """Place `item` (built projecting +Z, open back at z=0) flush against the
+        exterior of `side`, wall-centred, projecting outward. Handles the
+        north/west wall-local X flip so the centring lands in world coords."""
+        wall_width = self._wall_width(side, width_studs, length_studs)
+        c0 = max(0, (wall_width - item_width) // 2)   # wall-local low edge
+        plates_y = floor_row * PLATES_PER_BRICK_HEIGHT
+        w, length = width_studs, length_studs
+        if side == "south":
+            sx, sz = c0 + item_width, 0
+        elif side == "north":
+            sx, sz = (w - 1) - c0 - item_width, length - 1
+        elif side == "east":
+            sx, sz = w - 1, c0 + item_width
+        else:                                          # west
+            sx, sz = 0, (length - 1) - c0 - item_width
+        self.place_at(item, studs_x=sx, plates_y=plates_y, studs_z=sz, facing=side)
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @classmethod
+    def l_plan(
+        cls,
+        *,
+        main_width: int,
+        main_length: int,
+        wing_width: int,
+        wing_length: int,
+        palette: Palette,
+        storeys: int = 1,
+        storey_height_bricks: int = 9,
+        door_facing: Facing = "south",
+        chimney: bool = False,
+        name: str = "l_house",
+    ) -> Group:
+        """Compose two House blocks into an L-shaped footprint.
+
+        The wing attaches to the east end of the main block, back-aligned
+        (north edges flush), so the L opens to the south-east. Each block keeps
+        its own enriched walls and roof; the gables meet at the inner corner.
+        """
+        g = Group(name=name)
+        main = House(
+            width_studs=main_width, length_studs=main_length, palette=palette,
+            storeys=storeys, storey_height_bricks=storey_height_bricks,
+            door_facing=door_facing, chimney=chimney, name=f"{name}_main",
+        )
+        g.place_at(main, studs_x=0, studs_z=0)
+        wing = House(
+            width_studs=wing_width, length_studs=wing_length, palette=palette,
+            storeys=storeys, storey_height_bricks=storey_height_bricks,
+            name=f"{name}_wing",
+        )
+        # Share the corner: overlap one stud in X, flush at the back (north).
+        g.place_at(wing, studs_x=main_width - 1, studs_z=main_length - wing_length)
+        return g
 
     @staticmethod
     def _wall_width(side: Facing, width_studs: int, length_studs: int) -> int:

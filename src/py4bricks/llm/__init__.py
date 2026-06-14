@@ -24,6 +24,7 @@ from py4bricks.geometry import (
 from py4bricks.llm.box import Box
 from py4bricks.llm.group import Group
 from py4bricks.llm.house import House
+from py4bricks.llm.massing import BayWindow
 from py4bricks.llm.openings import Door, Window
 from py4bricks.llm.ornaments import (
     Awning,
@@ -64,6 +65,7 @@ __all__ = [
     "TUDOR",
     "Awning",
     "Balcony",
+    "BayWindow",
     "Box",
     "BricksRow",
     "Chimney",
