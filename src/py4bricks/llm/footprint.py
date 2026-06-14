@@ -95,9 +95,14 @@ class Footprint:
         height_bricks: int,
         colour: Colour,
         bonded: bool = True,
+        storeys: int = 1,
+        foundation_colour: Colour | None = None,
+        coping_colour: Colour | None = None,
+        band_colour: Colour | None = None,
+        mottle_colour: Colour | None = None,
+        mottle_ratio: float = 0.12,
         windows: bool = False,
         window_colour: Colour | None = None,
-        window_brick_row: int | None = None,
         entrance: Facing | None = None,
         door_colour: Colour | None = None,
         leaf_colour: Colour | None = None,
@@ -111,6 +116,12 @@ class Footprint:
         they read clean. Interior (shared) edges produce no run, so interiors
         stay continuous.
 
+        Every run is enriched uniformly (foundation course, coping cap, floor-line
+        bands between storeys, mottled texture) so the whole shell reads as one
+        building. With `storeys > 1`, a string course is added at each floor line
+        and windows are placed per storey (centred within each), so they never
+        clip the bands.
+
         Openings are optional and always EXTERIOR, since they can only attach to
         the exterior wall runs:
             windows  — distribute evenly-spaced windows along every wide-enough
@@ -118,6 +129,9 @@ class Footprint:
             entrance — put a door on the widest run facing this way; windows that
                        would clash with it are skipped.
         """
+        storey_height = height_bricks // max(1, storeys)
+        floor_lines = [s * storey_height for s in range(1, storeys)]
+
         runs = self.exterior_runs()
         shell = Group(name=name)
         placed: list[tuple[tuple[Facing, int, int, int], Wall]] = []
@@ -125,14 +139,22 @@ class Footprint:
             facing, fixed, a0, a1 = run
             wall_facing, sx, sz = _wall_placement(facing, fixed, a0, a1)
             wall = Wall(width_studs=a1 - a0, height_bricks=height_bricks, colour=colour, bonded=bonded)
+            if foundation_colour is not None:
+                wall.foundation(colour=foundation_colour)
+            if coping_colour is not None:
+                wall.coping(colour=coping_colour)
+            for row in floor_lines:
+                wall.band(brick_row=row, colour=band_colour or coping_colour or colour)
+            if mottle_colour is not None:
+                wall.mottle(colour=mottle_colour, ratio=mottle_ratio)
             shell.place_at(wall, studs_x=sx, plates_y=0, studs_z=sz, facing=wall_facing)
             placed.append((run, wall))
 
-        door_span: tuple[Wall, int, int] | None = None
+        door_span: tuple[Wall, int, int, int, int] | None = None
         if entrance is not None:
             door_span = _place_door(placed, entrance, door_colour or colour, leaf_colour or colour)
         if windows:
-            _place_windows(placed, window_brick_row, height_bricks, window_colour or colour, door_span)
+            _place_windows(placed, storeys, storey_height, window_colour or colour, door_span)
         return shell
 
 
@@ -153,8 +175,8 @@ def _place_door(
     facing: Facing,
     door_colour: Colour,
     leaf_colour: Colour,
-) -> tuple[Wall, int, int] | None:
-    """Place a centred door on the widest exterior run with the given facing."""
+) -> tuple[Wall, int, int, int, int] | None:
+    """Place a centred door on the widest exterior run; return its (wall, x0, x1, r0, r1)."""
     candidates = [(run, wall) for run, wall in placed if run[0] == facing]
     if not candidates:
         return None
@@ -164,27 +186,39 @@ def _place_door(
         return None
     x = max(0, ((a1 - a0) - door.opening_width_studs) // 2)
     wall.insert(piece=door, studs_x=x, brick_row=0)
-    return wall, x, x + door.opening_width_studs
+    return wall, x, x + door.opening_width_studs, 0, door.opening_height_bricks
 
 
 def _place_windows(
     placed: list[tuple[tuple[Facing, int, int, int], Wall]],
-    brick_row: int | None,
-    height_bricks: int,
+    storeys: int,
+    storey_height: int,
     colour: Colour,
-    door_span: tuple[Wall, int, int] | None,
+    door_span: tuple[Wall, int, int, int, int] | None,
 ) -> None:
-    """Distribute windows along every run, skipping any clash with the door."""
+    """Place windows per storey (centred within each), skipping clashes with the door."""
     proto = Window(colour=colour)
     win_w, win_h = proto.opening_width_studs, proto.opening_height_bricks
-    row = brick_row if brick_row is not None else max(1, (height_bricks - win_h) // 2)
-    if row + win_h > height_bricks:
-        return
+    rows = [
+        s * storey_height + max(1, (storey_height - win_h) // 2)
+        for s in range(storeys)
+    ]
+    rows = [r for r in rows if r + win_h <= storeys * storey_height]
+
     for (_, _, a0, a1), wall in placed:
-        for x in _even_positions(a1 - a0, win_w):
-            if door_span and wall is door_span[0] and not (x + win_w <= door_span[1] or x >= door_span[2]):
-                continue
-            wall.insert(piece=Window(colour=colour, sill_colour=colour), studs_x=x, brick_row=row)
+        for row in rows:
+            for x in _even_positions(a1 - a0, win_w):
+                if door_span and wall is door_span[0] and _overlaps(
+                    x, x + win_w, row, row + win_h, door_span[1:],
+                ):
+                    continue
+                wall.insert(piece=Window(colour=colour, sill_colour=colour), studs_x=x, brick_row=row)
+
+
+def _overlaps(x0: int, x1: int, r0: int, r1: int, span: tuple[int, int, int, int]) -> bool:
+    """True if (x0..x1, r0..r1) overlaps the door span (dx0, dx1, dr0, dr1)."""
+    dx0, dx1, dr0, dr1 = span
+    return x0 < dx1 and dx0 < x1 and r0 < dr1 and dr0 < r1
 
 
 def _merge_contiguous(values: set[int]) -> list[tuple[int, int]]:
