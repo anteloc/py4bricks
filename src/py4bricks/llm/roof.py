@@ -9,12 +9,14 @@ from py4bricks.geometry import (
     LDU_PER_STUD,
     PLATES_PER_BRICK_HEIGHT,
     Identity,
+    Vector,
     YAxis,
     plates_to_ldu,
     studs_to_ldu,
 )
 from py4bricks.library.colours import Red
 from py4bricks.library.parts.bricks import Brick1X1
+from py4bricks.library.parts.plates import Plate1X1
 from py4bricks.library.parts.slopes import (
     SlopeBrick452X1,
     SlopeBrick452X1Double,
@@ -90,10 +92,12 @@ class Roof(Group):
         length_studs: int,  # north-south dimension (Z), same convention as Box
         ridge_running: Orientation,
         colour: Colour = Red,
+        eaves_studs: int = 0,  # projecting soffit lip beyond the eave walls
         debug: bool = False,  # emit per-slope origin markers for inspection
     ) -> None:
         super().__init__(name=name)
         self.debug = debug
+        self._colour = colour
         self._init_pieces(colour)
         geo = _compute_geometry(width_studs, length_studs, ridge_running)
         left_facing, right_facing = _slope_facings(ridge_running)
@@ -110,6 +114,8 @@ class Roof(Group):
             length_studs,
         )
         self._place_gables(geo, ridge_running, width_studs, length_studs)
+        if eaves_studs > 0:
+            self._place_eaves(eaves_studs, ridge_running, width_studs, length_studs)
 
     def _init_pieces(self, colour: Colour) -> None:
         self.slope_piece_small = CustomPiece(
@@ -257,6 +263,36 @@ class Roof(Group):
                 plates_y=0,
                 studs_z=length_studs - 1,
             )
+
+    def _place_eaves(
+        self,
+        eaves_studs: int,
+        ridge_running: Orientation,
+        width_studs: int,
+        length_studs: int,
+    ) -> None:
+        """A flat soffit lip of plates projecting outward from the eave walls.
+
+        Eaves run along the two slope-bottom sides (not the gable ends): the
+        north/south walls for an east-west ridge, the east/west walls for a
+        north-south ridge. The lip sits at the wall-top line (y=0) and steps
+        outward `eaves_studs` studs.
+        """
+        cells: list[tuple[int, int]] = []  # (studs_x, studs_z)
+        for d in range(1, eaves_studs + 1):
+            if ridge_running == "east-west":
+                for x in range(width_studs):
+                    cells.append((x, -d))                  # south eave
+                    cells.append((x, length_studs - 1 + d))  # north eave
+            else:
+                for z in range(length_studs):
+                    cells.append((-d, z))                  # west eave
+                    cells.append((width_studs - 1 + d, z))  # east eave
+
+        for x, z in cells:
+            plate = Piece(part=Plate1X1, colour=self._colour)
+            plate.position = Vector(studs_to_ldu(x), 0, studs_to_ldu(z))
+            self.add(plate)
 
     def _build_gable(self, geo: _RoofGeometry) -> Group:
         """Staircase triangle of 1x1 bricks; base along local +X, growing upward.

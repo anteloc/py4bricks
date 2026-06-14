@@ -241,13 +241,18 @@ class Wall(Group):
     def insert(
         self,
         *,
-        piece: Piece,
+        piece: Piece | Group,
         studs_x: int,
         brick_row: int,
     ) -> None:
         """Carve an opening sized to piece and schedule piece for placement.
 
-        Opening dimensions are derived automatically:
+        Accepts either a bare part Piece or a composed opening (Window/Door).
+        For a composed opening the hole is sized to its `opening_width_studs` /
+        `opening_height_bricks` (the frame only) so the sill, shutters and
+        flower box mount on the wall face without needing a hole.
+
+        For a bare Piece the dimensions are derived automatically:
             width_studs   = piece.studs_x
             height_bricks = (piece.ldu_y - LDU_PER_STUD_HEIGHT) / LDU_PER_BRICK_HEIGHT
         This is an exact integer for all standard window and door frame parts.
@@ -255,8 +260,8 @@ class Wall(Group):
         studs_x   — left edge in studs from the wall's left end
         brick_row — bottom row in brick rows from the wall base
         """
-        width_studs   = piece.studs_x
-        height_bricks = int(
+        width_studs = getattr(piece, "opening_width_studs", None) or piece.studs_x
+        height_bricks = getattr(piece, "opening_height_bricks", None) or int(
             (piece.ldu_y - LDU_PER_STUD_HEIGHT) // LDU_PER_BRICK_HEIGHT,
         )
         self.opening(

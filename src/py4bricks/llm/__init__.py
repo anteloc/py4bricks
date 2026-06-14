@@ -23,6 +23,17 @@ from py4bricks.geometry import (
 )
 from py4bricks.llm.box import Box
 from py4bricks.llm.group import Group
+from py4bricks.llm.house import House
+from py4bricks.llm.openings import Door, Window
+from py4bricks.llm.ornaments import (
+    Awning,
+    Chimney,
+    Lamp,
+    Pergola,
+    Planter,
+    Railing,
+    Sign,
+)
 from py4bricks.llm.palette import (
     ALL_PALETTES,
     BRICK_RED,
@@ -50,14 +61,24 @@ __all__ = [
     "SANDSTONE",
     "STONE_GREY",
     "TUDOR",
+    "Awning",
     "Balcony",
     "Box",
     "BricksRow",
+    "Chimney",
     "Column",
+    "Door",
     "Facing",
     "Group",
+    "House",
+    "Lamp",
     "Palette",
+    "Pergola",
+    "Planter",
     "Porch",
+    "Railing",
+    "Sign",
+    "Window",
     "Roof",
     "Scene",
     "Side",
