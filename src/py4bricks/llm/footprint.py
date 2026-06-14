@@ -41,6 +41,11 @@ class Footprint:
         self._rects.append((x, z, width, length))
         return self
 
+    @property
+    def blocks(self) -> list[tuple[int, int, int, int]]:
+        """The blocks as (x, z, width, length) tuples — e.g. for per-block roofs."""
+        return list(self._rects)
+
     # ------------------------------------------------------------------
     # Geometry
     # ------------------------------------------------------------------

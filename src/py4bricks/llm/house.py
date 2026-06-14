@@ -61,6 +61,7 @@ if TYPE_CHECKING:
 
 from py4bricks.geometry import PLATES_PER_BRICK_HEIGHT
 from py4bricks.llm.box import Box
+from py4bricks.llm.footprint import Footprint
 from py4bricks.llm.group import Group
 from py4bricks.llm.massing import BayWindow
 from py4bricks.llm.openings import Door, Window
@@ -298,6 +299,67 @@ class House(Group):
     # ------------------------------------------------------------------
 
     @classmethod
+    def from_footprint(
+        cls,
+        footprint: Footprint,
+        *,
+        palette: Palette,
+        storeys: int = 1,
+        storey_height_bricks: int = 9,
+        entrance: Facing = "south",
+        chimney: bool = False,
+        texture: bool = False,
+        name: str = "house",
+    ) -> Group:
+        """A complete multi-block building from a Footprint — the general path.
+
+        Builds the enriched, opening-bearing shell (continuous interiors,
+        exterior-only windows/door) from the footprint's exterior runs, then caps
+        each block with its own gabled roof and optionally adds a chimney.
+
+        Any massing expressible as a union of rectangles works: L / T / U /
+        courtyard / wings / bays are all just blocks — no special-casing.
+        """
+        height = storeys * storey_height_bricks
+        building = Group(name=name)
+
+        shell = footprint.build_shell(
+            height_bricks=height, colour=palette.wall, bonded=True, storeys=storeys,
+            foundation_colour=palette.base, coping_colour=palette.trim, band_colour=palette.trim,
+            mottle_colour=palette.base if texture else None,
+            windows=True, window_colour=palette.trim,
+            entrance=entrance, door_colour=palette.trim, leaf_colour=palette.accent,
+            name=f"{name}_shell",
+        )
+        building.add(shell)
+
+        # One gabled roof per block, seated on the wall tops.
+        top = height * PLATES_PER_BRICK_HEIGHT
+        roofs: list[tuple[Group, int, int, int, int, Orientation]] = []
+        for i, (x, z, w, length) in enumerate(footprint.blocks):
+            rr: Orientation = "east-west" if w >= length else "north-south"
+            # A footprint block spans the full w x length studs, but Roof is sized
+            # like a Box (which covers width-1), so +1 each way to reach the far walls.
+            roof = Roof(
+                name=f"{name}_roof{i}", width_studs=w + 1, length_studs=length + 1,
+                ridge_running=rr, colour=palette.roof, eaves_studs=1,
+            )
+            building.place_at(roof, studs_x=x, plates_y=top, studs_z=z)
+            roofs.append((roof, x, z, w, length, rr))
+
+        if chimney and roofs:
+            roof, x, z, w, length, rr = roofs[0]
+            if rr == "east-west":
+                cr, cb = max(0, w // 3), max(0, length // 2 - 1)
+            else:
+                cr, cb = max(0, w // 2 - 1), max(0, length // 3)
+            building.place_on_top_of(
+                Chimney(colour=palette.base, height_bricks=4, cap_colour=palette.trim, skirt_bricks=2),
+                roof, right_studs=cr, back_studs=cb,
+            )
+        return building
+
+    @classmethod
     def l_plan(
         cls,
         *,
@@ -312,27 +374,21 @@ class House(Group):
         chimney: bool = False,
         name: str = "l_house",
     ) -> Group:
-        """Compose two House blocks into an L-shaped footprint.
+        """An L-shaped house: a main block plus a wing sharing one edge.
 
-        The wing attaches to the east end of the main block, back-aligned
-        (north edges flush), so the L opens to the south-east. Each block keeps
-        its own enriched walls and roof; the gables meet at the inner corner.
+        Now expressed as a two-block Footprint, so the shared wall is open
+        (continuous interior) and every opening is exterior — fixing the old
+        closed-box version's interior walls/windows.
         """
-        g = Group(name=name)
-        main = House(
-            width_studs=main_width, length_studs=main_length, palette=palette,
-            storeys=storeys, storey_height_bricks=storey_height_bricks,
-            door_facing=door_facing, chimney=chimney, name=f"{name}_main",
+        plan = (
+            Footprint()
+            .add_block(x=0, z=0, width=main_width, length=main_length)
+            .add_block(x=main_width, z=main_length - wing_length, width=wing_width, length=wing_length)
         )
-        g.place_at(main, studs_x=0, studs_z=0)
-        wing = House(
-            width_studs=wing_width, length_studs=wing_length, palette=palette,
-            storeys=storeys, storey_height_bricks=storey_height_bricks,
-            name=f"{name}_wing",
+        return cls.from_footprint(
+            plan, palette=palette, storeys=storeys, storey_height_bricks=storey_height_bricks,
+            entrance=door_facing, chimney=chimney, name=name,
         )
-        # Share the corner: overlap one stud in X, flush at the back (north).
-        g.place_at(wing, studs_x=main_width - 1, studs_z=main_length - wing_length)
-        return g
 
     @staticmethod
     def _wall_width(side: Facing, width_studs: int, length_studs: int) -> int:
