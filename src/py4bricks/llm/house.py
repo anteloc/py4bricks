@@ -49,6 +49,21 @@ STYLE COOKBOOK — how to make a building look good
 
 8. TEXTURE, SPARINGLY. `wall.mottle(colour=palette.base, ratio=0.10)` for
    subtle masonry variation — keep the ratio low so it doesn't look noisy.
+
+9. FOR ANYTHING BEYOND A SINGLE BOX, use a Footprint + House.from_footprint —
+   not several Houses placed side by side (that leaves walls/windows inside the
+   join). Declare the massing as a union of rectangular blocks and the engine
+   builds one continuous shell with exterior-only openings and a roof per block:
+
+       from py4bricks.llm import Footprint, House, COTTAGE
+       plan = (Footprint()
+               .add_block(x=0,  z=0, width=20, length=16)   # main
+               .add_block(x=20, z=4, width=12, length=12))  # wing -> L-plan
+       house = House.from_footprint(plan, palette=COTTAGE, storeys=2,
+                                    entrance="south", chimney=True)
+
+   L / T / U / courtyard / wings / bays are all just blocks — a bay is simply a
+   small block sharing an edge. House.l_plan is a two-block convenience wrapper.
 """
 from __future__ import annotations
 
