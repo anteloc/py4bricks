@@ -64,6 +64,20 @@ STYLE COOKBOOK — how to make a building look good
 
    L / T / U / courtyard / wings / bays are all just blocks — a bay is simply a
    small block sharing an edge. House.l_plan is a two-block convenience wrapper.
+
+10. FOR TALL BUILDINGS, switch the roof and skin and stack tiers:
+    - roof_style="flat" gives a deck + parapet instead of a gable.
+    - facade="curtain" gives a glazed skin (glass_segment_width/height tune the
+      pane grid) instead of punched windows.
+    - House.from_tiers([(footprint, storeys), ...]) stacks tiers; give higher
+      tiers smaller (inset) footprints for setbacks — each lower tier's top
+      becomes a terrace with a parapet.
+    - House.tower(footprint, palette=..., storeys=...) is the one-call skyscraper:
+      a tripartite base / shaft / crown with setbacks and a curtain wall.
+
+        from py4bricks.llm import Footprint, House, MODERN
+        tower = House.tower(Footprint().add_block(x=0, z=0, width=22, length=22),
+                            palette=MODERN, storeys=28)
 """
 from __future__ import annotations
 
@@ -330,6 +344,8 @@ class House(Group):
         glass_segment_height: int = 2,
         roof_style: Literal["gabled", "flat"] = "gabled",
         parapet_bricks: int = 1,
+        floors: bool = True,
+        floor_colour: Colour | None = None,
         name: str = "house",
     ) -> Group:
         """A complete multi-block building from a Footprint — the general path.
@@ -357,12 +373,91 @@ class House(Group):
         )
         building.add(shell)
 
+        if floors:
+            cls._add_floors(
+                building, footprint, palette, storeys, storey_height_bricks,
+                roof_style, floor_colour, name,
+            )
+
         top = height * PLATES_PER_BRICK_HEIGHT
         if roof_style == "flat":
             cls._add_flat_roof(building, footprint, palette, top, parapet_bricks, name)
         else:
             cls._add_gabled_roofs(building, footprint, palette, top, chimney, name)
         return building
+
+    @staticmethod
+    def _add_floors(
+        building: Group, footprint: Footprint, palette: Palette,
+        storeys: int, storey_height_bricks: int, roof_style: Literal["gabled", "flat"],
+        floor_colour: Colour | None, name: str,
+    ) -> None:
+        """A floor at each storey level, plus a top ceiling. The floor of storey
+        s+1 is the ceiling of storey s; under a gabled roof the top storey gets
+        its own ceiling (a flat roof's deck already closes it).
+
+        The floor covers only INTERIOR cells (the footprint eroded one stud at the
+        exterior walls, but kept across shared block junctions), so it meets the
+        walls' inner faces without overlapping them — no z-fighting — and its top
+        sits at the storey base (one plate down), level with the door threshold.
+        """
+        colour = floor_colour or palette.base
+        top_level = storeys + 1 if roof_style == "gabled" else storeys
+        for level in range(top_level):
+            y = level * storey_height_bricks * PLATES_PER_BRICK_HEIGHT - 1  # top at storey base
+            for i, (x, z, w, length) in enumerate(footprint.blocks):
+                slab = Slab(
+                    width_studs=w, length_studs=length, colour=colour,
+                    name=f"{name}_floor{level}_{i}",
+                )
+                building.place_at(slab, studs_x=x, plates_y=y, studs_z=z)
+
+    @classmethod
+    def tower(
+        cls,
+        footprint: Footprint,
+        *,
+        palette: Palette,
+        storeys: int = 20,
+        storey_height_bricks: int = 6,
+        base_storeys: int = 3,
+        crown_storeys: int = 2,
+        setback_studs: int = 2,
+        entrance: Facing = "south",
+        glass_segment_width: int = 2,
+        glass_segment_height: int = 1,
+        name: str = "tower",
+    ) -> Group:
+        """One-call skyscraper: a tripartite base / shaft / crown with setbacks.
+
+        From a single ground footprint, builds three stacked tiers — a full-width
+        base (podium, with the entrance), a slightly set-back shaft (the bulk of
+        the floors), and a further set-back crown — all in a curtain-wall skin
+        with a parapet at each setback and the top. It's `from_tiers` with
+        tasteful proportions chosen for you; reach for `from_tiers` directly when
+        you want explicit control of every tier.
+
+            tower = House.tower(
+                Footprint().add_block(x=0, z=0, width=22, length=22),
+                palette=MODERN, storeys=28,
+            )
+        """
+        base = max(1, min(base_storeys, storeys))
+        crown = max(0, min(crown_storeys, storeys - base))
+        shaft = max(0, storeys - base - crown)
+
+        tiers: list[tuple[Footprint, int]] = [(footprint, base)]
+        if shaft > 0:
+            tiers.append((footprint.inset(setback_studs), shaft))
+        if crown > 0:
+            tiers.append((footprint.inset(setback_studs * (2 if shaft > 0 else 1)), crown))
+
+        return cls.from_tiers(
+            tiers, palette=palette, storey_height_bricks=storey_height_bricks,
+            entrance=entrance, facade="curtain",
+            glass_segment_width=glass_segment_width, glass_segment_height=glass_segment_height,
+            name=name,
+        )
 
     @classmethod
     def from_tiers(

@@ -46,6 +46,16 @@ class Footprint:
         """The blocks as (x, z, width, length) tuples — e.g. for per-block roofs."""
         return list(self._rects)
 
+    def inset(self, margin: int) -> Footprint:
+        """A copy with every block shrunk by `margin` studs on all sides — used
+        to step a tier back from the one below. Blocks too small to survive the
+        inset are dropped."""
+        out = Footprint()
+        for x, z, w, length in self._rects:
+            if w - 2 * margin >= 1 and length - 2 * margin >= 1:
+                out.add_block(x=x + margin, z=z + margin, width=w - 2 * margin, length=length - 2 * margin)
+        return out
+
     # ------------------------------------------------------------------
     # Geometry
     # ------------------------------------------------------------------
