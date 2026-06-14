@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from py4bricks.llm.types import Facing
 
 from py4bricks.llm.group import Group
+from py4bricks.llm.openings import Door, Window
 from py4bricks.llm.wall import Wall
 
 
@@ -89,7 +90,18 @@ class Footprint:
     # ------------------------------------------------------------------
 
     def build_shell(
-        self, *, height_bricks: int, colour: Colour, bonded: bool = True, name: str = "shell",
+        self,
+        *,
+        height_bricks: int,
+        colour: Colour,
+        bonded: bool = True,
+        windows: bool = False,
+        window_colour: Colour | None = None,
+        window_brick_row: int | None = None,
+        entrance: Facing | None = None,
+        door_colour: Colour | None = None,
+        leaf_colour: Colour | None = None,
+        name: str = "shell",
     ) -> Group:
         """Build a Group of exterior Walls covering the footprint boundary.
 
@@ -98,13 +110,81 @@ class Footprint:
         1-stud thickness inward. Corners overlap by a stud, the same as Box, so
         they read clean. Interior (shared) edges produce no run, so interiors
         stay continuous.
+
+        Openings are optional and always EXTERIOR, since they can only attach to
+        the exterior wall runs:
+            windows  — distribute evenly-spaced windows along every wide-enough
+                       run, with corner margins.
+            entrance — put a door on the widest run facing this way; windows that
+                       would clash with it are skipped.
         """
+        runs = self.exterior_runs()
         shell = Group(name=name)
-        for facing, fixed, a0, a1 in self.exterior_runs():
+        placed: list[tuple[tuple[Facing, int, int, int], Wall]] = []
+        for run in runs:
+            facing, fixed, a0, a1 = run
             wall_facing, sx, sz = _wall_placement(facing, fixed, a0, a1)
             wall = Wall(width_studs=a1 - a0, height_bricks=height_bricks, colour=colour, bonded=bonded)
             shell.place_at(wall, studs_x=sx, plates_y=0, studs_z=sz, facing=wall_facing)
+            placed.append((run, wall))
+
+        door_span: tuple[Wall, int, int] | None = None
+        if entrance is not None:
+            door_span = _place_door(placed, entrance, door_colour or colour, leaf_colour or colour)
+        if windows:
+            _place_windows(placed, window_brick_row, height_bricks, window_colour or colour, door_span)
         return shell
+
+
+def _even_positions(width: int, opening: int, margin: int = 2) -> list[int]:
+    """Left-edge x of evenly-spaced openings across a run, with corner margins."""
+    usable = width - 2 * margin
+    if usable < opening:
+        return []
+    count = max(1, min(4, (usable + 3) // (opening + 3)))
+    if count == 1:
+        return [margin + (usable - opening) // 2]
+    step = (usable - opening) / (count - 1)
+    return [int(round(margin + i * step)) for i in range(count)]
+
+
+def _place_door(
+    placed: list[tuple[tuple[Facing, int, int, int], Wall]],
+    facing: Facing,
+    door_colour: Colour,
+    leaf_colour: Colour,
+) -> tuple[Wall, int, int] | None:
+    """Place a centred door on the widest exterior run with the given facing."""
+    candidates = [(run, wall) for run, wall in placed if run[0] == facing]
+    if not candidates:
+        return None
+    (_, _, a0, a1), wall = max(candidates, key=lambda rw: rw[0][3] - rw[0][2])
+    door = Door(colour=door_colour, leaf_colour=leaf_colour)
+    if door.opening_height_bricks > wall._height_bricks:
+        return None
+    x = max(0, ((a1 - a0) - door.opening_width_studs) // 2)
+    wall.insert(piece=door, studs_x=x, brick_row=0)
+    return wall, x, x + door.opening_width_studs
+
+
+def _place_windows(
+    placed: list[tuple[tuple[Facing, int, int, int], Wall]],
+    brick_row: int | None,
+    height_bricks: int,
+    colour: Colour,
+    door_span: tuple[Wall, int, int] | None,
+) -> None:
+    """Distribute windows along every run, skipping any clash with the door."""
+    proto = Window(colour=colour)
+    win_w, win_h = proto.opening_width_studs, proto.opening_height_bricks
+    row = brick_row if brick_row is not None else max(1, (height_bricks - win_h) // 2)
+    if row + win_h > height_bricks:
+        return
+    for (_, _, a0, a1), wall in placed:
+        for x in _even_positions(a1 - a0, win_w):
+            if door_span and wall is door_span[0] and not (x + win_w <= door_span[1] or x >= door_span[2]):
+                continue
+            wall.insert(piece=Window(colour=colour, sill_colour=colour), studs_x=x, brick_row=row)
 
 
 def _merge_contiguous(values: set[int]) -> list[tuple[int, int]]:
