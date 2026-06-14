@@ -19,7 +19,7 @@ i.e. world extent x[x, x+width], z[z, z+length].
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from py4bricks.colour import Colour
@@ -106,8 +106,12 @@ class Footprint:
         band_colour: Colour | None = None,
         mottle_colour: Colour | None = None,
         mottle_ratio: float = 0.12,
+        facade: Literal["punched", "curtain"] = "punched",
         windows: bool = False,
         window_colour: Colour | None = None,
+        glass_colour: Colour | None = None,
+        glass_segment_width: int = 2,
+        glass_segment_height: int = 2,
         entrance: Facing | None = None,
         door_colour: Colour | None = None,
         leaf_colour: Colour | None = None,
@@ -127,12 +131,13 @@ class Footprint:
         and windows are placed per storey (centred within each), so they never
         clip the bands.
 
-        Openings are optional and always EXTERIOR, since they can only attach to
-        the exterior wall runs:
-            windows  — distribute evenly-spaced windows along every wide-enough
-                       run, with corner margins.
-            entrance — put a door on the widest run facing this way; windows that
-                       would clash with it are skipped.
+        The facade is either "punched" (individual windows, houses) or "curtain"
+        (a glazed skin — trans glass with vertical mullions, the floor bands
+        acting as spandrels; tall buildings). Either way openings stay EXTERIOR,
+        since they only attach to the exterior wall runs:
+            windows  — (punched) distribute evenly-spaced windows along every
+                       wide-enough run, with corner margins.
+            entrance — put a door on the widest run facing this way.
         """
         storey_height = height_bricks // max(1, storeys)
         floor_lines = [s * storey_height for s in range(1, storeys)]
@@ -155,10 +160,19 @@ class Footprint:
             shell.place_at(wall, studs_x=sx, plates_y=0, studs_z=sz, facing=wall_facing)
             placed.append((run, wall))
 
+        if facade == "curtain":
+            for _, wall in placed:
+                wall.glaze(
+                    glass_colour=glass_colour or colour,
+                    mullion_colour=window_colour or colour,
+                    segment_width_studs=glass_segment_width,
+                    segment_height_bricks=glass_segment_height,
+                )
+
         door_span: tuple[Wall, int, int, int, int] | None = None
         if entrance is not None:
             door_span = _place_door(placed, entrance, door_colour or colour, leaf_colour or colour)
-        if windows:
+        if facade == "punched" and windows:
             _place_windows(placed, storeys, storey_height, window_colour or colour, door_span)
         return shell
 

@@ -192,6 +192,8 @@ class Wall(Group):
         self._bands: dict[int, Colour]         = {}        # brick_row -> colour
         self._mottle: tuple[Colour, float, int] | None = None  # (colour, ratio, seed)
         self._coping_colour: Colour | None     = None
+        # (glass, mullion, segment_width_studs, segment_height_bricks)
+        self._glazing: tuple[Colour, Colour, int, int] | None = None
 
         self._dirty = True  # trigger build on first children access
 
@@ -304,6 +306,23 @@ class Wall(Group):
         self._dirty = True
         return self
 
+    def glaze(
+        self,
+        *,
+        glass_colour: Colour,
+        mullion_colour: Colour,
+        segment_width_studs: int = 2,
+        segment_height_bricks: int = 2,
+    ) -> Wall:
+        """Turn the wall into a glazed curtain wall — a grid of glass panes framed
+        by 1-stud mullions (vertical) and 1-brick transoms (horizontal).
+
+        Each pane is `segment_width_studs` wide x `segment_height_bricks` tall.
+        Foundation and band courses still win (solid base / floor spandrels)."""
+        self._glazing = (glass_colour, mullion_colour, segment_width_studs, segment_height_bricks)
+        self._dirty = True
+        return self
+
     def copy(self) -> Wall:
         """Create a deep copy of this Wall, including all inserts but excluding children."""
         new_wall = Wall(
@@ -322,6 +341,7 @@ class Wall(Group):
         new_wall._bands             = dict(self._bands)
         new_wall._mottle            = self._mottle
         new_wall._coping_colour     = self._coping_colour
+        new_wall._glazing           = self._glazing
         # `orientation` is stale once Scene.place_at has run, so copy the
         # actual rotation matrix instead of going through the facing string.
         new_wall.local_rot = self.local_rot.copy()
@@ -352,6 +372,11 @@ class Wall(Group):
             return self._bands[brick_row]
         if brick_row < self._foundation_rows and self._foundation_colour is not None:
             return self._foundation_colour
+        if self._glazing is not None:
+            glass, mullion, seg_w, seg_h = self._glazing
+            on_mullion = x % (seg_w + 1) == 0
+            on_transom = brick_row % (seg_h + 1) == 0
+            return mullion if (on_mullion or on_transom) else glass
         if self._mottle is not None:
             colour, ratio, seed = self._mottle
             if random.Random(f"{seed}:{x}:{brick_row}").random() < ratio:
@@ -403,6 +428,12 @@ class Wall(Group):
         mid fires at studs_to_align ∈ {0, 2}; small fires for 1 and 3 so that
         alignment-restoring smalls always land flush at opening edges.
         """
+        # A glazed wall colours each stud independently (mullion vs glass), so it
+        # must be built from 1-stud bricks — otherwise 2-wide bricks and running
+        # bond smear the mullion columns into a mosaic.
+        if self._glazing is not None:
+            return self._small_brick.copy(), 1
+
         studs_to_align = (bond_offset - x) % self._medium_width
 
         fits_medium = (

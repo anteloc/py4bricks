@@ -325,6 +325,9 @@ class House(Group):
         entrance: Facing = "south",
         chimney: bool = False,
         texture: bool = False,
+        facade: Literal["punched", "curtain"] = "punched",
+        glass_segment_width: int = 2,
+        glass_segment_height: int = 2,
         roof_style: Literal["gabled", "flat"] = "gabled",
         parapet_bricks: int = 1,
         name: str = "house",
@@ -347,7 +350,8 @@ class House(Group):
             height_bricks=height, colour=palette.wall, bonded=True, storeys=storeys,
             foundation_colour=palette.base, coping_colour=palette.trim, band_colour=palette.trim,
             mottle_colour=palette.base if texture else None,
-            windows=True, window_colour=palette.trim,
+            facade=facade, windows=True, window_colour=palette.trim, glass_colour=palette.glass,
+            glass_segment_width=glass_segment_width, glass_segment_height=glass_segment_height,
             entrance=entrance, door_colour=palette.trim, leaf_colour=palette.accent,
             name=f"{name}_shell",
         )
@@ -358,6 +362,59 @@ class House(Group):
             cls._add_flat_roof(building, footprint, palette, top, parapet_bricks, name)
         else:
             cls._add_gabled_roofs(building, footprint, palette, top, chimney, name)
+        return building
+
+    @classmethod
+    def from_tiers(
+        cls,
+        tiers: list[tuple[Footprint, int]],
+        *,
+        palette: Palette,
+        storey_height_bricks: int = 8,
+        entrance: Facing = "south",
+        facade: Literal["punched", "curtain"] = "curtain",
+        glass_segment_width: int = 2,
+        glass_segment_height: int = 2,
+        texture: bool = False,
+        parapet_bricks: int = 2,
+        name: str = "tower",
+    ) -> Group:
+        """A tall building as a vertical stack of (Footprint, storeys) tiers.
+
+        Each tier is a shell stacked on the one below; give higher tiers smaller
+        (inset) footprints for setbacks — a podium-and-tower / wedding-cake
+        massing. Every tier is capped with a flat deck + parapet: a terrace for
+        the lower tiers (where the next tier steps back), the crown for the top.
+        Only the ground tier gets a foundation and the entrance.
+
+            tiers = [
+                (Footprint().add_block(x=0, z=0, width=24, length=24), 4),  # podium
+                (Footprint().add_block(x=2, z=2, width=20, length=20), 8),  # mid
+                (Footprint().add_block(x=5, z=5, width=14, length=14), 6),  # tower
+            ]
+            tower = House.from_tiers(tiers, palette=MODERN)
+        """
+        building = Group(name=name)
+        base_brick = 0  # cumulative height of tiers placed so far
+        for i, (footprint, storeys) in enumerate(tiers):
+            height = storeys * storey_height_bricks
+            shell = footprint.build_shell(
+                height_bricks=height, colour=palette.wall, bonded=True, storeys=storeys,
+                foundation_colour=palette.base if i == 0 else None,
+                coping_colour=palette.trim, band_colour=palette.trim,
+                mottle_colour=palette.base if texture else None,
+                facade=facade, windows=True, window_colour=palette.trim, glass_colour=palette.glass,
+                glass_segment_width=glass_segment_width, glass_segment_height=glass_segment_height,
+                entrance=entrance if i == 0 else None,
+                door_colour=palette.trim, leaf_colour=palette.accent,
+                name=f"{name}_tier{i}",
+            )
+            building.place_at(shell, studs_x=0, plates_y=base_brick * PLATES_PER_BRICK_HEIGHT, studs_z=0)
+            base_brick += height
+            cls._add_flat_roof(
+                building, footprint, palette,
+                base_brick * PLATES_PER_BRICK_HEIGHT, parapet_bricks, f"{name}_tier{i}",
+            )
         return building
 
     @staticmethod
