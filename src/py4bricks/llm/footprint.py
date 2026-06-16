@@ -126,6 +126,7 @@ class Footprint:
         door_colour: Colour | None = None,
         leaf_colour: Colour | None = None,
         exclude_under: set[tuple[int, int]] | None = None,
+        keep_clear: set[tuple[int, int]] | None = None,
         name: str = "shell",
     ) -> Group:
         """Build a Group of exterior Walls covering the footprint boundary.
@@ -193,7 +194,7 @@ class Footprint:
         if entrance is not None:
             door_span = _place_door(placed, entrance, door_colour or colour, leaf_colour or colour)
         if facade == "punched" and windows:
-            _place_windows(placed, storeys, storey_height, window_colour or colour, door_span)
+            _place_windows(placed, storeys, storey_height, window_colour or colour, door_span, keep_clear)
         return shell
 
 
@@ -261,8 +262,11 @@ def _place_windows(
     storey_height: int,
     colour: Colour,
     door_span: tuple[Wall, int, int, int, int] | None,
+    keep_clear: set[tuple[int, int]] | None = None,
 ) -> None:
-    """Place windows per storey (centred within each), skipping clashes with the door."""
+    """Distribute windows per storey, placed within the CLEAR segments of each run
+    — the parts not blocked by the door or by a partition junction, so windows
+    relocate around obstacles instead of just dropping out."""
     proto = Window(colour=colour)
     win_w, win_h = proto.opening_width_studs, proto.opening_height_bricks
     rows = [
@@ -271,20 +275,165 @@ def _place_windows(
     ]
     rows = [r for r in rows if r + win_h <= storeys * storey_height]
 
-    for (_, _, a0, a1), wall in placed:
+    for (facing, fixed, a0, a1), wall in placed:
+        width = a1 - a0
+        # Partition junctions on this run -> 2-stud-wide blocked intervals (local).
+        junction_blocks = [
+            (local - 1, local + 1)
+            for local in _junction_locals(facing, fixed, a0, a1, keep_clear or set())
+        ]
         for row in rows:
-            for x in _even_positions(a1 - a0, win_w):
-                if door_span and wall is door_span[0] and _overlaps(
-                    x, x + win_w, row, row + win_h, door_span[1:],
-                ):
-                    continue
-                wall.insert(piece=Window(colour=colour, sill_colour=colour), studs_x=x, brick_row=row)
+            blocked = list(junction_blocks)
+            if door_span and wall is door_span[0]:
+                _, dx0, dx1, dr0, dr1 = door_span
+                if row < dr1 and dr0 < row + win_h:
+                    blocked.append((dx0, dx1))
+            for s0, s1 in _clear_segments(2, width - 2, blocked):
+                for x in _even_in(s0, s1, win_w):
+                    wall.insert(piece=Window(colour=colour, sill_colour=colour), studs_x=x, brick_row=row)
+
+
+def _junction_locals(
+    facing: Facing, fixed: int, a0: int, a1: int, junctions: set[tuple[int, int]],
+) -> list[int]:
+    """Wall-local stud positions of partition junctions that land on this run."""
+    out: list[int] = []
+    for jx, jz in junctions:
+        if facing in ("south", "north") and jz == fixed:
+            out.append(jx - a0 if facing == "south" else a1 - jx)
+        elif facing in ("east", "west") and jx == fixed:
+            out.append(jz - a0 if facing == "east" else a1 - jz)
+    return out
+
+
+def _clear_segments(lo: int, hi: int, blocked: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """[lo, hi] with the blocked intervals removed."""
+    segments = [(lo, hi)]
+    for b0, b1 in blocked:
+        nxt: list[tuple[int, int]] = []
+        for s0, s1 in segments:
+            if b1 <= s0 or b0 >= s1:
+                nxt.append((s0, s1))
+                continue
+            if s0 < b0:
+                nxt.append((s0, b0))
+            if b1 < s1:
+                nxt.append((b1, s1))
+        segments = nxt
+    return segments
+
+
+def _even_in(s0: int, s1: int, win_w: int) -> list[int]:
+    """Evenly-spaced window left-edges inside a clear segment [s0, s1]."""
+    width = s1 - s0
+    if width < win_w:
+        return []
+    count = max(1, min(3, (width + 2) // (win_w + 2)))
+    if count == 1:
+        return [s0 + (width - win_w) // 2]
+    step = (width - win_w) / (count - 1)
+    return [int(round(s0 + i * step)) for i in range(count)]
 
 
 def _overlaps(x0: int, x1: int, r0: int, r1: int, span: tuple[int, int, int, int]) -> bool:
     """True if (x0..x1, r0..r1) overlaps the door span (dx0, dx1, dr0, dr1)."""
     dx0, dx1, dr0, dr1 = span
     return x0 < dx1 and dx0 < x1 and r0 < dr1 and dr0 < r1
+
+
+class FloorPlan:
+    """A set of named room rectangles that tile a footprint.
+
+    The exterior shell is just the union's boundary (use `footprint()`), while
+    interior PARTITION walls fall on edges between two *different* rooms — the
+    dual of the exterior tracer. Declare rooms like blocks, name them, and the
+    engine derives all the internal walls:
+
+        plan = (FloorPlan()
+                .add_room(name="kitchen", x=0, z=0, width=8, length=6)
+                .add_room(name="hall",    x=8, z=0, width=4, length=12)
+                .add_room(name="living",  x=0, z=6, width=8, length=6))
+        house = House.from_floor_plan(plan, palette=COTTAGE)
+    """
+
+    def __init__(self) -> None:
+        self._rooms: list[tuple[str, int, int, int, int]] = []  # name, x, z, w, l
+
+    def add_room(self, *, name: str, x: int, z: int, width: int, length: int) -> FloorPlan:
+        """Add a named room rectangle; returns self for chaining."""
+        self._rooms.append((name, x, z, width, length))
+        return self
+
+    def footprint(self) -> Footprint:
+        """The union of all rooms, as a Footprint (for the exterior shell)."""
+        fp = Footprint()
+        for _, x, z, w, length in self._rooms:
+            fp.add_block(x=x, z=z, width=w, length=length)
+        return fp
+
+    def _cell_rooms(self) -> dict[tuple[int, int], str]:
+        out: dict[tuple[int, int], str] = {}
+        for name, x, z, w, length in self._rooms:
+            for cx in range(x, x + w):
+                for cz in range(z, z + length):
+                    out[(cx, cz)] = name
+        return out
+
+    def partition_runs(self) -> list[tuple[Facing, int, int, int]]:
+        """Merged interior partition runs as (facing, fixed, a0, a1).
+
+        Each is a straight wall on the edge between two different rooms — a
+        vertical edge (facing "east") at x=fixed, or a horizontal one (facing
+        "north") at z=fixed; a0..a1 is the run's span on the other axis.
+        """
+        rooms = self._cell_rooms()
+        vertical: dict[int, set[int]] = defaultdict(set)    # x -> {cz}
+        horizontal: dict[int, set[int]] = defaultdict(set)  # z -> {cx}
+        for (cx, cz), room in rooms.items():
+            if rooms.get((cx - 1, cz), room) != room:
+                vertical[cx].add(cz)        # edge at x=cx (between cx-1 and cx)
+            if rooms.get((cx, cz - 1), room) != room:
+                horizontal[cz].add(cx)      # edge at z=cz (between cz-1 and cz)
+
+        runs: list[tuple[Facing, int, int, int]] = []
+        for x, czs in vertical.items():
+            for a0, a1 in _merge_contiguous(czs):
+                runs.append(("east", x, a0, a1))
+        for z, cxs in horizontal.items():
+            for a0, a1 in _merge_contiguous(cxs):
+                runs.append(("north", z, a0, a1))
+        return runs
+
+    def partition_junctions(self) -> set[tuple[int, int]]:
+        """World points where a partition END actually meets an exterior wall (the
+        cell just beyond the end is outside the footprint). The exterior shell
+        keeps windows clear of these — but only on the wall that's truly hit, so
+        windows elsewhere are unaffected."""
+        cells = set(self._cell_rooms())
+        out: set[tuple[int, int]] = set()
+        for facing, fixed, a0, a1 in self.partition_runs():
+            if facing == "east":            # vertical partition at x=fixed
+                if (fixed, a0 - 1) not in cells:
+                    out.add((fixed, a0))
+                if (fixed, a1) not in cells:
+                    out.add((fixed, a1))
+            else:                            # horizontal partition at z=fixed
+                if (a0 - 1, fixed) not in cells:
+                    out.add((a0, fixed))
+                if (a1, fixed) not in cells:
+                    out.add((a1, fixed))
+        return out
+
+    def build_partitions(
+        self, *, height_bricks: int, colour: Colour, bonded: bool = True, name: str = "partitions",
+    ) -> Group:
+        """Build a Group of interior partition Walls (one storey high)."""
+        partitions = Group(name=name)
+        for facing, fixed, a0, a1 in self.partition_runs():
+            wall_facing, sx, sz = _wall_placement(facing, fixed, a0, a1)
+            wall = Wall(width_studs=a1 - a0, height_bricks=height_bricks, colour=colour, bonded=bonded)
+            partitions.place_at(wall, studs_x=sx, plates_y=0, studs_z=sz, facing=wall_facing)
+        return partitions
 
 
 def _merge_contiguous(values: set[int]) -> list[tuple[int, int]]:

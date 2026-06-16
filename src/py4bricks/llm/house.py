@@ -91,7 +91,7 @@ if TYPE_CHECKING:
 from py4bricks.geometry import PLATES_PER_BRICK_HEIGHT, Vector, plates_to_ldu, studs_to_ldu
 from py4bricks.library.parts.plates import Plate1X1, Plate1X2
 from py4bricks.llm.box import Box
-from py4bricks.llm.footprint import Footprint
+from py4bricks.llm.footprint import FloorPlan, Footprint
 from py4bricks.llm.group import Group
 from py4bricks.llm.massing import BayWindow
 from py4bricks.llm.openings import Door, Window
@@ -348,6 +348,7 @@ class House(Group):
         parapet_bricks: int = 1,
         floors: bool = True,
         floor_colour: Colour | None = None,
+        keep_clear: set[tuple[int, int]] | None = None,
         name: str = "house",
     ) -> Group:
         """A complete multi-block building from a Footprint — the general path.
@@ -371,7 +372,7 @@ class House(Group):
             facade=facade, windows=True, window_colour=palette.trim, glass_colour=palette.glass,
             glass_segment_width=glass_segment_width, glass_segment_height=glass_segment_height,
             entrance=entrance, door_colour=palette.trim, leaf_colour=palette.accent,
-            name=f"{name}_shell",
+            keep_clear=keep_clear, name=f"{name}_shell",
         )
         building.add(shell)
 
@@ -386,6 +387,47 @@ class House(Group):
             cls._add_flat_roof(building, footprint, palette, top, parapet_bricks, name)
         else:
             cls._add_gabled_roofs(building, footprint, palette, top, chimney, name)
+        return building
+
+    @classmethod
+    def from_floor_plan(
+        cls,
+        floor_plan: FloorPlan,
+        *,
+        palette: Palette,
+        storeys: int = 1,
+        storey_height_bricks: int = 9,
+        door_facing: Facing = "south",
+        chimney: bool = False,
+        texture: bool = False,
+        roof_style: Literal["gabled", "flat"] = "gabled",
+        floor_colour: Colour | None = None,
+        partition_colour: Colour | None = None,
+        name: str = "house",
+    ) -> Group:
+        """A house with a partitioned interior, from a FloorPlan of named rooms.
+
+        Builds the enriched exterior shell + floors (from the rooms' union
+        footprint), then raises an interior PARTITION wall on every edge between
+        two different rooms, one storey high, on each floor. Internal doorways to
+        connect the rooms come next (I3); for now each room is a closed box.
+        """
+        building = cls.from_footprint(
+            floor_plan.footprint(), palette=palette, storeys=storeys,
+            storey_height_bricks=storey_height_bricks, entrance=door_facing,
+            chimney=chimney, texture=texture, roof_style=roof_style,
+            floor_colour=floor_colour, keep_clear=floor_plan.partition_junctions(), name=name,
+        )
+        partition_colour = partition_colour or palette.wall
+        for s in range(storeys):
+            partitions = floor_plan.build_partitions(
+                height_bricks=storey_height_bricks, colour=partition_colour,
+                name=f"{name}_partitions{s}",
+            )
+            building.place_at(
+                partitions, studs_x=0,
+                plates_y=s * storey_height_bricks * PLATES_PER_BRICK_HEIGHT, studs_z=0,
+            )
         return building
 
     @classmethod
