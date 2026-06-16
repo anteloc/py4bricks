@@ -88,7 +88,8 @@ if TYPE_CHECKING:
     from py4bricks.llm.palette import Palette
     from py4bricks.llm.types import Facing, Orientation
 
-from py4bricks.geometry import PLATES_PER_BRICK_HEIGHT
+from py4bricks.geometry import PLATES_PER_BRICK_HEIGHT, Vector, plates_to_ldu, studs_to_ldu
+from py4bricks.library.parts.plates import Plate1X1, Plate1X2
 from py4bricks.llm.box import Box
 from py4bricks.llm.footprint import Footprint
 from py4bricks.llm.group import Group
@@ -97,6 +98,7 @@ from py4bricks.llm.openings import Door, Window
 from py4bricks.llm.ornaments import Balcony, Chimney
 from py4bricks.llm.roof import Roof
 from py4bricks.llm.slab import Slab
+from py4bricks.pieces import Piece
 
 
 class House(Group):
@@ -408,36 +410,44 @@ class House(Group):
         colour = floor_colour or palette.base
         sh = storey_height_bricks * PLATES_PER_BRICK_HEIGHT
 
-        # Base floor: supports the walls from below, lowered so its top is the
-        # ground threshold.
-        cls._slab_floor(building, footprint, colour, grow=1, offset=0, y=-1, name=f"{name}_floor0")
+        # Base floor: a full Slab per block, grown +1 to cover the wall span it
+        # supports; lowered so its top is the ground threshold.
+        cls._full_floor(building, footprint, colour, y=-1, name=f"{name}_floor0")
 
-        # Intermediate floors: fit between the wall inner faces (no interpenetration).
+        # Intermediate floors: tile the interior so it fits between the wall inner
+        # faces AND spans shared junctions (no interpenetration, no junction gap).
+        interior = _interior_floor_cells(footprint)
         for level in range(1, storeys):
-            cls._slab_floor(
-                building, footprint, colour, grow=-1, offset=1,
-                y=level * sh - 1, name=f"{name}_floor{level}",
-            )
+            cls._interior_floor(building, interior, colour, y=level * sh - 1, name=f"{name}_floor{level}")
 
         # Top ceiling under a gabled roof rests on the walls (a flat roof's deck
         # already closes the top).
         if roof_style == "gabled":
-            cls._slab_floor(building, footprint, colour, grow=1, offset=0, y=storeys * sh, name=f"{name}_ceiling")
+            cls._full_floor(building, footprint, colour, y=storeys * sh, name=f"{name}_ceiling")
 
     @staticmethod
-    def _slab_floor(
-        building: Group, footprint: Footprint, colour: Colour,
-        grow: int, offset: int, y: int, name: str,
-    ) -> None:
-        """A Slab per block, each sized footprint+grow and shifted by offset studs,
-        placed at plate level y. (grow=+1/offset=0 fills the wall span; grow=-1/
-        offset=1 fits between the wall inner faces.)"""
+    def _full_floor(building: Group, footprint: Footprint, colour: Colour, y: int, name: str) -> None:
+        """A Slab per block, grown +1, covering the full wall span at plate level y."""
         for i, (x, z, w, length) in enumerate(footprint.blocks):
-            sw, sl = w + grow, length + grow
-            if sw < 1 or sl < 1:
-                continue
-            slab = Slab(width_studs=sw, length_studs=sl, colour=colour, name=f"{name}_{i}")
-            building.place_at(slab, studs_x=x + offset, plates_y=y, studs_z=z + offset)
+            slab = Slab(width_studs=w + 1, length_studs=length + 1, colour=colour, name=f"{name}_{i}")
+            building.place_at(slab, studs_x=x, plates_y=y, studs_z=z)
+
+    @staticmethod
+    def _interior_floor(
+        building: Group, interior: set[tuple[int, int]], colour: Colour, y: int, name: str,
+    ) -> None:
+        """Tile the interior cells with plates at plate level y. Plates render half
+        a stud low, which lands them exactly on the walls' inner faces."""
+        for cz in sorted({cz for _, cz in interior}):
+            row = sorted(cx for cx, c in interior if c == cz)
+            for s0, s1 in _contiguous(row):
+                x = s0
+                while x < s1:
+                    use_1x2 = x + 1 < s1
+                    tile = Piece(part=Plate1X2 if use_1x2 else Plate1X1, colour=colour)
+                    tile.position = Vector(studs_to_ldu(x), plates_to_ldu(y), studs_to_ldu(cz))
+                    building.add(tile)
+                    x += 2 if use_1x2 else 1
 
     @classmethod
     def tower(
@@ -648,3 +658,26 @@ class House(Group):
             s == side and x0 < ox1 and ox0 < x1 and r0 < or1 and or0 < r1
             for (s, ox0, ox1, or0, or1) in self._occupied
         )
+
+
+def _interior_floor_cells(footprint: Footprint) -> set[tuple[int, int]]:
+    """Footprint cells kept for an interior floor: those whose west and south
+    neighbours are both in the footprint. This drops only the low-side exterior
+    cells (so the half-stud-low plate render lands on the wall inner faces) while
+    keeping high-side and shared-junction cells, so the floor spans block joins."""
+    cells = footprint.cells()
+    return {
+        (cx, cz) for (cx, cz) in cells
+        if (cx - 1, cz) in cells and (cx, cz - 1) in cells
+    }
+
+
+def _contiguous(values: list[int]) -> list[tuple[int, int]]:
+    """Merge a sorted list of ints into [start, end) runs of consecutive values."""
+    out: list[tuple[int, int]] = []
+    for v in values:
+        if out and v == out[-1][1]:
+            out[-1] = (out[-1][0], v + 1)
+        else:
+            out.append((v, v + 1))
+    return out
