@@ -379,29 +379,33 @@ class FloorPlan:
                     out[(cx, cz)] = name
         return out
 
-    def partition_runs(self) -> list[tuple[Facing, int, int, int]]:
-        """Merged interior partition runs as (facing, fixed, a0, a1).
+    def partition_runs(self) -> list[tuple[tuple[str, str], Facing, int, int, int]]:
+        """Interior partition runs, one per ROOM-PAIR edge, as
+        (pair, facing, fixed, a0, a1).
 
-        Each is a straight wall on the edge between two different rooms — a
-        vertical edge (facing "east") at x=fixed, or a horizontal one (facing
-        "north") at z=fixed; a0..a1 is the run's span on the other axis.
+        `pair` is the two rooms a run separates (sorted). A vertical edge faces
+        "east" at x=fixed; a horizontal one faces "north" at z=fixed; a0..a1 is
+        the run's span on the other axis. Keying by pair keeps each wall a single
+        room boundary, so a doorway in it connects exactly those two rooms.
         """
         rooms = self._cell_rooms()
-        vertical: dict[int, set[int]] = defaultdict(set)    # x -> {cz}
-        horizontal: dict[int, set[int]] = defaultdict(set)  # z -> {cx}
+        vertical: dict[tuple[tuple[str, str], int], set[int]] = defaultdict(set)
+        horizontal: dict[tuple[tuple[str, str], int], set[int]] = defaultdict(set)
         for (cx, cz), room in rooms.items():
-            if rooms.get((cx - 1, cz), room) != room:
-                vertical[cx].add(cz)        # edge at x=cx (between cx-1 and cx)
-            if rooms.get((cx, cz - 1), room) != room:
-                horizontal[cz].add(cx)      # edge at z=cz (between cz-1 and cz)
+            west = rooms.get((cx - 1, cz))
+            if west is not None and west != room:
+                vertical[(tuple(sorted((room, west))), cx)].add(cz)
+            south = rooms.get((cx, cz - 1))
+            if south is not None and south != room:
+                horizontal[(tuple(sorted((room, south))), cz)].add(cx)
 
-        runs: list[tuple[Facing, int, int, int]] = []
-        for x, czs in vertical.items():
+        runs: list[tuple[tuple[str, str], Facing, int, int, int]] = []
+        for (pair, x), czs in vertical.items():
             for a0, a1 in _merge_contiguous(czs):
-                runs.append(("east", x, a0, a1))
-        for z, cxs in horizontal.items():
+                runs.append((pair, "east", x, a0, a1))
+        for (pair, z), cxs in horizontal.items():
             for a0, a1 in _merge_contiguous(cxs):
-                runs.append(("north", z, a0, a1))
+                runs.append((pair, "north", z, a0, a1))
         return runs
 
     def partition_junctions(self) -> set[tuple[int, int]]:
@@ -411,7 +415,7 @@ class FloorPlan:
         windows elsewhere are unaffected."""
         cells = set(self._cell_rooms())
         out: set[tuple[int, int]] = set()
-        for facing, fixed, a0, a1 in self.partition_runs():
+        for _, facing, fixed, a0, a1 in self.partition_runs():
             if facing == "east":            # vertical partition at x=fixed
                 if (fixed, a0 - 1) not in cells:
                     out.add((fixed, a0))
@@ -425,27 +429,43 @@ class FloorPlan:
         return out
 
     def build_partitions(
-        self, *, height_bricks: int, colour: Colour, bonded: bool = True, name: str = "partitions",
+        self,
+        *,
+        height_bricks: int,
+        colour: Colour,
+        bonded: bool = True,
+        doorways: bool = True,
+        doorway_width: int = 3,
+        name: str = "partitions",
     ) -> Group:
-        """Build a Group of interior partition Walls (one storey high).
+        """Build a Group of interior partition Walls (one storey high), with a
+        centred doorway carved in each (so adjacent rooms connect).
 
         A partition's bricks render half a stud toward one end (low for vertical,
         high for horizontal walls), so the end that meets an EXTERIOR wall is
         trimmed one stud — it then stops exactly at the wall's inner face (a clean
         T-junction) instead of poking through it. Ends meeting other partitions
-        are left full so they connect.
+        are left full so they connect. A doorway is only carved where the wall is
+        wide enough; a thin "corridor" room thus links every room it borders.
         """
         cells = set(self._cell_rooms())
+        doorway_height = min(6, height_bricks - 1)
         partitions = Group(name=name)
-        for facing, fixed, a0, a1 in self.partition_runs():
+        for _, facing, fixed, a0, a1 in self.partition_runs():
             if facing == "east" and (fixed, a0 - 1) not in cells:   # vertical: low end
                 a0 += 1
             elif facing == "north" and (a1, fixed) not in cells:    # horizontal: high end
                 a1 -= 1
-            if a1 - a0 < 1:
+            width = a1 - a0
+            if width < 1:
                 continue
             wall_facing, sx, sz = _wall_placement(facing, fixed, a0, a1)
-            wall = Wall(width_studs=a1 - a0, height_bricks=height_bricks, colour=colour, bonded=bonded)
+            wall = Wall(width_studs=width, height_bricks=height_bricks, colour=colour, bonded=bonded)
+            if doorways and width >= doorway_width + 2 and doorway_height >= 1:
+                wall.opening(
+                    studs_x=(width - doorway_width) // 2, brick_row=0,
+                    width_studs=doorway_width, height_bricks=doorway_height,
+                )
             partitions.place_at(wall, studs_x=sx, plates_y=0, studs_z=sz, facing=wall_facing)
         return partitions
 
