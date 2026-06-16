@@ -427,9 +427,23 @@ class FloorPlan:
     def build_partitions(
         self, *, height_bricks: int, colour: Colour, bonded: bool = True, name: str = "partitions",
     ) -> Group:
-        """Build a Group of interior partition Walls (one storey high)."""
+        """Build a Group of interior partition Walls (one storey high).
+
+        A partition's bricks render half a stud toward one end (low for vertical,
+        high for horizontal walls), so the end that meets an EXTERIOR wall is
+        trimmed one stud — it then stops exactly at the wall's inner face (a clean
+        T-junction) instead of poking through it. Ends meeting other partitions
+        are left full so they connect.
+        """
+        cells = set(self._cell_rooms())
         partitions = Group(name=name)
         for facing, fixed, a0, a1 in self.partition_runs():
+            if facing == "east" and (fixed, a0 - 1) not in cells:   # vertical: low end
+                a0 += 1
+            elif facing == "north" and (a1, fixed) not in cells:    # horizontal: high end
+                a1 -= 1
+            if a1 - a0 < 1:
+                continue
             wall_facing, sx, sz = _wall_placement(facing, fixed, a0, a1)
             wall = Wall(width_studs=a1 - a0, height_bricks=height_bricks, colour=colour, bonded=bonded)
             partitions.place_at(wall, studs_x=sx, plates_y=0, studs_z=sz, facing=wall_facing)
