@@ -192,7 +192,7 @@ class Footprint:
 
         door_span: tuple[Wall, int, int, int, int] | None = None
         if entrance is not None:
-            door_span = _place_door(placed, entrance, door_colour or colour, leaf_colour or colour)
+            door_span = _place_door(placed, entrance, door_colour or colour, leaf_colour or colour, keep_clear)
         if facade == "punched" and windows:
             _place_windows(placed, storeys, storey_height, window_colour or colour, door_span, keep_clear)
         return shell
@@ -242,18 +242,36 @@ def _place_door(
     facing: Facing,
     door_colour: Colour,
     leaf_colour: Colour,
+    keep_clear: set[tuple[int, int]] | None = None,
 ) -> tuple[Wall, int, int, int, int] | None:
-    """Place a centred door on the widest exterior run; return its (wall, x0, x1, r0, r1)."""
+    """Place a door on the widest exterior run, in the clear segment nearest the
+    wall centre (avoiding partition junctions); return (wall, x0, x1, r0, r1)."""
     candidates = [(run, wall) for run, wall in placed if run[0] == facing]
     if not candidates:
         return None
-    (_, _, a0, a1), wall = max(candidates, key=lambda rw: rw[0][3] - rw[0][2])
+    (run_facing, fixed, a0, a1), wall = max(candidates, key=lambda rw: rw[0][3] - rw[0][2])
     door = Door(colour=door_colour, leaf_colour=leaf_colour)
-    if door.opening_height_bricks > wall._height_bricks:
+    dw, dh = door.opening_width_studs, door.opening_height_bricks
+    if dh > wall._height_bricks:
         return None
-    x = max(0, ((a1 - a0) - door.opening_width_studs) // 2)
-    wall.insert(piece=door, studs_x=x, brick_row=0)
-    return wall, x, x + door.opening_width_studs, 0, door.opening_height_bricks
+
+    width = a1 - a0
+    blocked = [
+        (local - 1, local + 1)
+        for local in _junction_locals(run_facing, fixed, a0, a1, keep_clear or set())
+    ]
+    centre = width / 2
+    best_x: int | None = None
+    for s0, s1 in _clear_segments(1, width - 1, blocked):
+        if s1 - s0 < dw:
+            continue
+        x = max(s0, min(s1 - dw, round(centre - dw / 2)))
+        if best_x is None or abs(x + dw / 2 - centre) < abs(best_x + dw / 2 - centre):
+            best_x = x
+    if best_x is None:
+        return None
+    wall.insert(piece=door, studs_x=best_x, brick_row=0)
+    return wall, best_x, best_x + dw, 0, dh
 
 
 def _place_windows(
