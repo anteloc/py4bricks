@@ -386,8 +386,9 @@ class House(Group):
             cls._add_gabled_roofs(building, footprint, palette, top, chimney, name)
         return building
 
-    @staticmethod
+    @classmethod
     def _add_floors(
+        cls,
         building: Group, footprint: Footprint, palette: Palette,
         storeys: int, storey_height_bricks: int, roof_style: Literal["gabled", "flat"],
         floor_colour: Colour | None, name: str,
@@ -396,21 +397,47 @@ class House(Group):
         s+1 is the ceiling of storey s; under a gabled roof the top storey gets
         its own ceiling (a flat roof's deck already closes it).
 
-        The floor covers only INTERIOR cells (the footprint eroded one stud at the
-        exterior walls, but kept across shared block junctions), so it meets the
-        walls' inner faces without overlapping them — no z-fighting — and its top
-        sits at the storey base (one plate down), level with the door threshold.
+        The exterior walls render half a stud either side of the footprint edge
+        (span = footprint + 1), so the integer space BETWEEN their inner faces is
+        footprint - 1. Floors are therefore sized to match:
+          - base / top ceiling: footprint + 1, at the block origin — covers the
+            full wall span (it supports / rests on the walls), no gap.
+          - intermediate: footprint - 1, offset one stud in — exactly spans the
+            inner faces, so it meets the walls without interpenetrating them.
         """
         colour = floor_colour or palette.base
-        top_level = storeys + 1 if roof_style == "gabled" else storeys
-        for level in range(top_level):
-            y = level * storey_height_bricks * PLATES_PER_BRICK_HEIGHT - 1  # top at storey base
-            for i, (x, z, w, length) in enumerate(footprint.blocks):
-                slab = Slab(
-                    width_studs=w, length_studs=length, colour=colour,
-                    name=f"{name}_floor{level}_{i}",
-                )
-                building.place_at(slab, studs_x=x, plates_y=y, studs_z=z)
+        sh = storey_height_bricks * PLATES_PER_BRICK_HEIGHT
+
+        # Base floor: supports the walls from below, lowered so its top is the
+        # ground threshold.
+        cls._slab_floor(building, footprint, colour, grow=1, offset=0, y=-1, name=f"{name}_floor0")
+
+        # Intermediate floors: fit between the wall inner faces (no interpenetration).
+        for level in range(1, storeys):
+            cls._slab_floor(
+                building, footprint, colour, grow=-1, offset=1,
+                y=level * sh - 1, name=f"{name}_floor{level}",
+            )
+
+        # Top ceiling under a gabled roof rests on the walls (a flat roof's deck
+        # already closes the top).
+        if roof_style == "gabled":
+            cls._slab_floor(building, footprint, colour, grow=1, offset=0, y=storeys * sh, name=f"{name}_ceiling")
+
+    @staticmethod
+    def _slab_floor(
+        building: Group, footprint: Footprint, colour: Colour,
+        grow: int, offset: int, y: int, name: str,
+    ) -> None:
+        """A Slab per block, each sized footprint+grow and shifted by offset studs,
+        placed at plate level y. (grow=+1/offset=0 fills the wall span; grow=-1/
+        offset=1 fits between the wall inner faces.)"""
+        for i, (x, z, w, length) in enumerate(footprint.blocks):
+            sw, sl = w + grow, length + grow
+            if sw < 1 or sl < 1:
+                continue
+            slab = Slab(width_studs=sw, length_studs=sl, colour=colour, name=f"{name}_{i}")
+            building.place_at(slab, studs_x=x + offset, plates_y=y, studs_z=z + offset)
 
     @classmethod
     def tower(
